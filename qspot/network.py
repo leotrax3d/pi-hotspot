@@ -33,6 +33,8 @@ def sync_bypass(c):
  nft('flush set inet qspot vpn_bypass\n'+(f'add element inet qspot vpn_bypass {{ {values} }}' if values else ''))
 
 def base(c):
+ import pihole
+ pihole.reset_route()
  subnet=str(ipaddress.ip_interface(c['guest']).network)
  addresses=[str(ipaddress.ip_interface(c['guest']).ip)]
  for d in json.loads(run('ip','-j','-4','address','show')):
@@ -52,10 +54,13 @@ def base(c):
  set localaddrs {{ type ipv4_addr; elements = {{ {', '.join(sorted(set(addresses)))} }}; }}
  chain mark_vpn {{ type filter hook prerouting priority mangle; policy accept; {mark}; }}
  chain input {{ type filter hook input priority -30; policy accept;
+  iifname != "lo" tcp dport 8081 drop
+  iifname != {{ "lo", "{AP}" }} udp dport 5354 drop
+  iifname != {{ "lo", "{AP}" }} tcp dport 5354 drop
   iifname "{AP}" meta nfproto ipv6 drop
   iifname "{AP}" ether saddr @blocked drop
-  iifname "{AP}" udp dport {{ 53, 67, 5353 }} accept
-  iifname "{AP}" tcp dport {{ 53, 80, 443, 8080, 8443 }} accept
+  iifname "{AP}" udp dport {{ 53, 67, 5353, 5354 }} accept
+  iifname "{AP}" tcp dport {{ 53, 80, 443, 8080, 8443, 5354 }} accept
   iifname "{AP}" ip protocol icmp accept
   iifname "{AP}" drop
  }}
@@ -76,11 +81,12 @@ def base(c):
  chain accounting {{ type filter hook forward priority -25; policy accept; }}
  chain quotas {{ type filter hook forward priority -26; policy accept; }}
  chain output {{ type filter hook output priority -30; policy accept; {protect}; }}
+ chain guest_dns {{ redirect to :53; }}
  chain portal_redirect {{ type nat hook prerouting priority dstnat; policy accept;
   ip daddr @localaddrs tcp dport 443 redirect to :8443
   ip daddr @localaddrs tcp dport 80 redirect to :8080
-  iifname "{AP}" udp dport 53 redirect to :53
-  iifname "{AP}" tcp dport 53 redirect to :53
+  iifname "{AP}" udp dport 53 jump guest_dns
+  iifname "{AP}" tcp dport 53 jump guest_dns
   iifname "{AP}" ether saddr . ip saddr @allowed return
   iifname "{AP}" tcp dport 80 redirect to :8080
  }}
@@ -130,18 +136,20 @@ def start_guest_services(c):
  dns(c);shaping(c)
 
 def dns(c):
+ import pihole
  hostdns=run('nmcli','-g','IP4.DNS','device','show',WAN,check=False).splitlines()
  hostdns=[x for x in hostdns if re.fullmatch(r'\d+\.\d+\.\d+\.\d+',x)] or ['1.1.1.1']
  servers=[ip+('@qspot-wg' if Path('/sys/class/net/qspot-wg').exists() else '') for ip in vpn_dns(c)] if c['vpn']!='off' else hostdns
  ip=ipaddress.ip_interface(c['guest']);net=ip.network
  cfg=f'interface={AP}\nbind-dynamic\nexcept-interface=lo\nlisten-address={ip.ip}\nno-resolv\ndomain-needed\nbogus-priv\nlog-async=25\ndhcp-authoritative\ndhcp-range={net.network_address+20},{net.network_address+220},255.255.255.0,1h\ndhcp-option=3,{ip.ip}\ndhcp-option=6,{ip.ip}\ndhcp-leasefile=/run/qspot-dns-guest/leases\ndhcp-option=114,http://{ip.ip}/captive-api\n'
  cfg+=''.join(f'host-record={name},{ip.ip}\n' for name in dict.fromkeys((identity(c)['portal_domain'],c['hostname']+'.local')))
- cfg+=''.join('server='+s+'\n' for s in servers)
- if c.get('dns_logging'):cfg+='log-queries=extra\nlog-facility=/run/qspot-dns-guest/queries.log\n'
+ if not pihole.enabled(c):cfg+=''.join('server='+s+'\n' for s in servers)
+ if c.get('dns_logging') and not pihole.enabled(c):cfg+='log-queries=extra\nlog-facility=/run/qspot-dns-guest/queries.log\n'
  Path('/run/qspot/dns-guest.conf').write_text(cfg)
  Path('/run/qspot/dns-guest.conf').chmod(0o644)
  run('dnsmasq','--test','--conf-file=/run/qspot/dns-guest.conf')
  run('systemctl','restart','qspot-dns@guest.service')
+ pihole.configure(c,[s.split('@')[0] for s in servers])
 
 def update_local(c):
  addresses=[str(ipaddress.ip_interface(c['guest']).ip)]

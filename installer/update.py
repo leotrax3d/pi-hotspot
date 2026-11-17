@@ -36,6 +36,10 @@ def main():
    setup.write_text('/usr/local/bin/pi-hotspot',(source/'installer'/'pi-hotspot').read_text(),0o755)
    for unit in setup.UNITS:shutil.copy2(source/'system'/unit,Path('/etc/systemd/system')/unit)
    setup.write_text('/opt/qspot/SOURCE',setup.command('git','-C',str(source),'rev-parse','HEAD',quiet=True))
+   from common import STATE
+   from pihole_setup import prepare
+   import json
+   prepare(json.loads((STATE/'config.json').read_text()))
    setup.command('systemctl','daemon-reload');setup.command('systemctl','start','qspot-net','qspot-web')
    setup.wait_ready()
    runtime.finish();committed=True

@@ -40,3 +40,8 @@ jobs:
           test -n "$headers"
           make -j2 -C "$headers" M=/tmp/aic-build/aic_load_fw CONFIG_PLATFORM_UBUNTU=y modules
           make -j2 -C "$headers" M=/tmp/aic-build/aic8800_fdrv KBUILD_EXTRA_SYMBOLS=/tmp/aic-build/aic_load_fw/Module.symvers CONFIG_PLATFORM_UBUNTU=y modules
+  pihole:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 installer/check_pihole.py

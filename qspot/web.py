@@ -129,7 +129,7 @@ def config(): return jsonify(rpc('config'))
 @admin
 def action():
  d=dict(request.json); method=d.pop('method')
- if method not in {'scan','wifi_list','wifi_connect','wifi_priority','codes','revoke_code','delete_code','end','block','unblock','unblock_all','clear_devices','vpn_import','vpn_toggle','device_vpn','apply','confirm','rollback','restart','reboot','logs','matrix_test','matrix_config','web_activity','clear_web_activity'}: raise ValueError('Aktion nicht freigegeben')
+ if method not in {'dns_status','dns_action','scan','wifi_list','wifi_connect','wifi_priority','codes','revoke_code','delete_code','end','block','unblock','unblock_all','clear_devices','vpn_import','vpn_toggle','device_vpn','apply','confirm','rollback','restart','reboot','logs','matrix_test','matrix_config','web_activity','clear_web_activity'}: raise ValueError('Aktion nicht freigegeben')
  return jsonify(result=rpc(method,**d))
 @app.get('/api/admin/sessions')
 @admin

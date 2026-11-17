@@ -164,6 +164,8 @@ def tick():
      RECOVERY=[s for s in RECOVERY if s['id'] not in live]
     from activity_log import maintain
     maintain(c)
+    import pihole
+    pihole.maintain(c)
     if c['vpn']!='off' and not Path('/sys/class/net/qspot-wg').exists() and time.monotonic()>=VPN_RETRY_AT:
      try:
       network.vpn(c);network.dns(c);network.shaping(c);VPN_RETRY_DELAY=5
@@ -236,6 +238,12 @@ def dispatch(d):
  method=d['method']; c=config()
  if method in ('apply','wifi_connect','vpn_toggle','vpn_import','reboot','restart') and Path('/var/lib/pi-hotspot/transaction.json').exists():raise ValueError('Wartung aktiv')
  if method=='config': return c
+ if method in ('dns_status','dns_action'):
+  import pihole
+  if method=='dns_action':
+   if Path('/var/lib/pi-hotspot/transaction.json').exists():raise ValueError('Wartung aktiv')
+   return pihole.action(c,d)
+  return pihole.view(c)
  if method=='matrix_test':
   mode=int(d['mode'])
   if not 0<=mode<=6:raise ValueError('Unbekanntes Matrixsymbol')
