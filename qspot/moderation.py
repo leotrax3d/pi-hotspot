@@ -26,7 +26,7 @@ def has_link(text):
 def moderate_message(value):
  text=clean(value)
  if not text: raise ValueError('Nachricht ist leer')
- if has_link(text): raise ValueError('Links sind im SchülerWLAN-Chat nicht erlaubt')
+ if has_link(text): raise ValueError('Links sind im Chat nicht erlaubt')
  masked=WORDS.sub(lambda m:'•'*len(m.group(0)),text)
  compact=re.sub(r'[^a-zäöüß]','',text.lower().translate(LEET))
  if any(word in compact for word in BLOCKED) and masked==text:

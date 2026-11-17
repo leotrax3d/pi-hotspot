@@ -374,7 +374,7 @@ function App() {
         route={route}
         navigate={navigate}
         logout={() => void logout()}
-        hostname={config?.hostname || "SchülerWLAN"}
+        hostname={config?.hostname || "Router"}
         features={config?.features||{}}
       />
       <SidebarInset>

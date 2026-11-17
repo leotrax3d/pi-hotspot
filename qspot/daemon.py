@@ -2,7 +2,7 @@ import copy, hashlib, ipaddress, json, os, re, secrets, socketserver, sqlite3, t
 from pathlib import Path
 from common import STATE, DEFAULT, atomic, run, validate
 import network
-from branding import identity, portal_url
+from branding import identity, portal_url, renamed_config
 
 LOCK=threading.RLock()
 CONFIG=STATE/'config.json'
@@ -142,10 +142,13 @@ def activate(ip,code=None):
   network.revoke(mac,ip); raise
  return session_view(rows('SELECT * FROM sessions WHERE id=?',(ident,))[0])
 
-def session_view(s,c=None):
+def session_view(s,c=None,names=None):
  c=c or config()
  p=c['profiles'].get(s['profile'],{})
- return {**s,'remaining_seconds':max(0,int(s['deadline']-time.monotonic())) if s['deadline'] else None,'limit_bytes':p.get('bytes',0),'vpn':c['vpn']!='off' and s['mac'] not in c.get('vpn_bypass',[])}
+ if names is None:
+  from device_names import hostnames
+  names=hostnames()
+ return {**s,'hostname':names.get((s['mac'],s['ip']),''),'remaining_seconds':max(0,int(s['deadline']-time.monotonic())) if s['deadline'] else None,'limit_bytes':p.get('bytes',0),'vpn':c['vpn']!='off' and s['mac'] not in c.get('vpn_bypass',[])}
 
 def tick():
  global ERROR, RECOVERY
@@ -195,6 +198,8 @@ def tick():
 LAST={}
 def status_data():
  c=config(); now=time.monotonic(); rates={}
+ from device_names import hostnames
+ names=hostnames()
  for dev in (network.WAN,network.AP,'qspot-wg'):
   path=Path('/sys/class/net')/dev/'statistics'
   if not path.exists(): continue
@@ -212,7 +217,7 @@ def status_data():
  stations=network.associated()
  started=Path('/run/qspot/vpn-started')
  connecting=started.exists() and time.time()-float(started.read_text())<30
- return {'connected_guests':len(stations),'associated_macs':stations,'host_connected':connected,'internet':internet,'host':host,'rates':rates,'vpn':('off' if c['vpn']=='off' else 'connected' if stamp and time.time()-stamp<180 else 'connecting' if connecting else 'blocked'),'vpn_global':False,'vpn_enabled':c['vpn']!='off','features':c.get('features',{}),'uplink_interface':network.WAN,'network_mode':network.PLATFORM['mode'],'vpn_handshake':stamp,'cpu_load':os.getloadavg()[0],'ram_total':mem['MemTotal'],'ram_available':mem['MemAvailable'],'disk_free':stat.f_bavail*stat.f_frsize,'temperature_c':int(Path('/sys/class/thermal/thermal_zone0/temp').read_text())/1000,'error':ERROR,'uptime':int(now-START),'sessions':[session_view(s,c) for s in rows('SELECT * FROM sessions ORDER BY id DESC LIMIT 200')],'codes':rows('SELECT id,label,profile,expires,duration,first,revoked FROM codes ORDER BY id DESC'),'blocked':rows('SELECT * FROM blocked'),'pending':(STATE/'pending.json').exists() or (STATE/'wifi-pending.json').exists(),'vpn_servers':[p.stem for p in (STATE/'vpn').glob('*.json')]}
+ return {'connected_guests':len(stations),'associated_macs':stations,'host_connected':connected,'internet':internet,'host':host,'rates':rates,'vpn':('off' if c['vpn']=='off' else 'connected' if stamp and time.time()-stamp<180 else 'connecting' if connecting else 'blocked'),'vpn_global':False,'vpn_enabled':c['vpn']!='off','features':c.get('features',{}),'uplink_interface':network.WAN,'network_mode':network.PLATFORM['mode'],'vpn_handshake':stamp,'cpu_load':os.getloadavg()[0],'ram_total':mem['MemTotal'],'ram_available':mem['MemAvailable'],'disk_free':stat.f_bavail*stat.f_frsize,'temperature_c':int(Path('/sys/class/thermal/thermal_zone0/temp').read_text())/1000,'error':ERROR,'uptime':int(now-START),'sessions':[session_view(s,c,names) for s in rows('SELECT * FROM sessions ORDER BY id DESC LIMIT 200')],'codes':rows('SELECT id,label,profile,expires,duration,first,revoked FROM codes ORDER BY id DESC'),'blocked':rows('SELECT * FROM blocked'),'pending':(STATE/'pending.json').exists() or (STATE/'wifi-pending.json').exists(),'vpn_servers':[p.stem for p in (STATE/'vpn').glob('*.json')]}
 
 def web_activity(hours=24):
  from activity_log import activity
@@ -307,7 +312,7 @@ def dispatch(d):
   import configparser, uuid
   ident=str(uuid.uuid4()); p=Path('/run/qspot/connect.nmconnection')
   parser=configparser.ConfigParser(interpolation=None)
-  parser['connection']={'id':'SchülerWLAN-'+ssid,'uuid':ident,'type':'wifi','autoconnect':'true','autoconnect-priority':str(max(-999,min(999,int(d.get('priority',0)))))}
+  parser['connection']={'id':identity(c)['brand_name']+'-'+ssid,'uuid':ident,'type':'wifi','autoconnect':'true','autoconnect-priority':str(max(-999,min(999,int(d.get('priority',0)))))}
   parser['connection']['interface-name']=network.WAN
   parser['wifi']={'ssid':ssid,'mode':'infrastructure','powersave':'2','hidden':'true' if hidden else 'false'}
   parser['ipv4']={'method':'auto'}; parser['ipv6']={'method':'auto'}
@@ -356,7 +361,7 @@ def dispatch(d):
   return set_vpn(c,d['enabled'],d.get('server'))
  if method=='apply':
   if (STATE/'pending.json').exists(): raise ValueError('Vorherige Änderung zuerst bestätigen oder zurückrollen')
-  new=validate({**c,**d['config']},json.loads(run('ip','-j','route','show','table','main')))
+  new=validate(renamed_config(c,d['config']),json.loads(run('ip','-j','route','show','table','main')))
   atomic(STATE/'previous.json',c)
   atomic(STATE/'pending.json',{'deadline':time.time()+120})
   run('systemd-run','--unit=qspot-rollback','--on-active=120s','/usr/bin/python3','/opt/qspot/qspot/rollback.py')

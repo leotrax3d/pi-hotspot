@@ -7,7 +7,7 @@ export type Config = {
  vpn:'off'|'guest'|'usb'|'both';vpn_server:string;onboarding_complete?:boolean;
  matrix:{enabled:boolean;brightness:number;reduce_motion:boolean;night_start:string;night_end:string;timezone?:string};
 }
-export type GuestSession={vpn?:boolean;id:number;mac:string;ip:string;profile:string;active:number;used:number;reason:string;remaining_seconds:number|null;limit_bytes:number;code_id:number|null}
+export type GuestSession={hostname?:string;vpn?:boolean;id:number;mac:string;ip:string;profile:string;active:number;used:number;reason:string;remaining_seconds:number|null;limit_bytes:number;code_id:number|null}
 export type Status={features?:Record<string,boolean>;vpn_enabled?:boolean;uplink_interface?:string;network_mode?:string;connected_guests?:number;associated_macs?:string[];vpn_global?:boolean;host_connected:boolean;internet:boolean;host:string;vpn:string;vpn_handshake:number;rates:Record<string,{rx_bytes:number;tx_bytes:number;rx_Bps:number;tx_Bps:number}>;sessions:GuestSession[];codes:{id:number;label:string;profile:string;expires:number;duration:number;first:number;revoked:number}[];blocked:{mac:string}[];cpu_load:number;ram_total:number;ram_available:number;disk_free:number;temperature_c:number;error:string;uptime:number;pending:boolean;vpn_servers:string[];simulation?:boolean}
 export type Auth={brand_name?:string;portal_domain?:string;csrf:string;setup:boolean;authenticated:boolean;simulation?:boolean}
 let csrf=''

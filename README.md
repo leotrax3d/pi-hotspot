@@ -88,9 +88,11 @@ Die Arduino-LED-Matrix gehört nicht zur Pi-Version.
 
 ## Name und Portal-Adresse
 
-Anzeigename, Portal-Domain, WLAN-SSID, Titel und Portaltexte sind im Installer und unter **Einstellungen** frei konfigurierbar. Beispiel: `Campus Nord` und `login.campus.lan`. DNS, Weiterleitungen, Browser-Titel, Chat, Dashboard, Authenticator-Name und das lokale TLS-Zertifikat folgen der Konfiguration. Domains werden als DNS-Namen validiert; URLs mit Pfad oder Port sind keine Domain. Internationale Domains werden in IDNA umgewandelt.
+Unter **Einstellungen → Portal → Name** wird das Projekt global umbenannt. Vorkommen des bisherigen Namens in SSID und Portaltexten sowie daraus abgeleitete Hostnamen und Domains folgen automatisch. Unabhängig gewählte Namen/Adressen und ausdrücklich neue Domain-Eingaben bleiben erhalten. Anzeigename, Portal-Domain, WLAN-SSID, Titel und Portaltexte sind auch einzeln konfigurierbar. Beispiel: `Campus Nord` und `login.campus.lan`. DNS, Weiterleitungen, Browser-Titel, Chat, Dashboard, Authenticator-Name und das lokale TLS-Zertifikat folgen der Konfiguration. Domains werden als DNS-Namen validiert; URLs mit Pfad oder Port sind keine Domain. Internationale Domains werden in IDNA umgewandelt.
 
 Die Adresse wird im Hotspot lokal aufgelöst. Ein eigener Name registriert keine öffentliche Domain. Namen unter `.local` erhalten bei Bedarf einen Avahi-Eintrag für die Hotspot-IP. Auf dem Uplink bleibt die Pi-IP die Ausweichadresse. Nach einer Domain-Änderung muss das neu erzeugte lokale Zertifikat erneut geprüft werden. Netzwerkänderungen erfordern weiter die Erreichbarkeitsbestätigung innerhalb von 120 Sekunden.
+
+Gerätenamen werden aus aktuellen DHCP-Leases angezeigt, sofern das Gerät einen Namen übermittelt. Die Zuordnung verwendet MAC und IP; IP und MAC bleiben sichtbar. Es erfolgen keine zusätzlichen DNS-Abfragen oder Netzwerkscans.
 
 ## Verwaltung
 

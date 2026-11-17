@@ -7,8 +7,8 @@ import path from 'node:path'
 import assert from 'node:assert/strict'
 
 const root=path.resolve(import.meta.dirname,'../../qspot/static/app')
-const config={hostname:'pi-hotspot',ssid:'Test Hotspot',guest:'10.77.0.1/24',usb:'10.78.0.1/24',
- channel:6,country:'DE',portal_mode:'accept',title:'Welcome',description:'',terms:'',accept_text:'OK',
+const config={hostname:'pi-hotspot',ssid:'Campus',guest:'10.77.0.1/24',usb:'10.78.0.1/24',
+ channel:6,country:'DE',portal_mode:'accept',title:'Campus Portal',description:'',terms:'',accept_text:'OK',
  profiles:{standard:{bytes:0,seconds:0,down_kbit:0,up_kbit:0,devices:0,concurrent:0}},
  default_profile:'standard',global_down_kbit:0,global_up_kbit:0,usb_down_kbit:0,usb_up_kbit:0,
  vpn:'both',vpn_server:'test',onboarding_complete:true,matrix:{enabled:false,brightness:2,night_start:'22:00',night_end:'07:00'},
@@ -16,7 +16,7 @@ const config={hostname:'pi-hotspot',ssid:'Test Hotspot',guest:'10.77.0.1/24',usb
 const status={connected_guests:1,associated_macs:['02:00:00:00:00:01'],vpn_enabled:true,vpn:'connected',
  host_connected:true,internet:true,host:'',uplink_interface:'eth0',network_mode:'lan',
  rates:{eth0:{rx_bytes:10000,tx_bytes:1000,rx_Bps:1024,tx_Bps:512}},
- sessions:[{id:1,mac:'02:00:00:00:00:01',ip:'10.77.0.20',profile:'standard',active:1,used:100,
+ sessions:[{id:1,mac:'02:00:00:00:00:01',ip:'10.77.0.20',profile:'standard',hostname:'School-Laptop',active:1,used:100,
  remaining_seconds:null,limit_bytes:0,reason:'',vpn:true}],codes:[],blocked:[],
  vpn_servers:['test'],pending:false,cpu_load:0.2,ram_total:1073741824,ram_available:500000000,
  disk_free:10000000000,temperature_c:42,uptime:60}
@@ -53,7 +53,7 @@ try{
  browser=await chromium.launch(process.env.EDGE_PATH?{executablePath:process.env.EDGE_PATH}:{})
  const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message))
  await page.goto(`http://127.0.0.1:${server.address().port}/admin`)
- await page.getByText('Raspberry Pi',{exact:true}).waitFor()
+ await page.getByText('Raspberry Pi',{exact:true}).waitFor();await page.getByText('School-Laptop',{exact:true}).waitFor()
  assert.equal(await page.getByRole('link',{name:'LED-Matrix',exact:true}).count(),0)
  const toggle=page.getByRole('switch',{name:'VPN f\u00fcr 10.77.0.20'})
  await toggle.click();await page.waitForFunction(()=>document.querySelector('button[role=switch][aria-label="VPN f\u00fcr 10.77.0.20"]')?.getAttribute('aria-checked')==='false')
@@ -66,6 +66,8 @@ try{
  if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'dashboard-desktop.png'),fullPage:true})
  await page.getByRole('link',{name:'Einstellungen',exact:true}).click()
  await page.getByLabel('Name',{exact:true}).fill('Campus Nord')
+ assert.equal(await page.getByLabel('Titel',{exact:true}).inputValue(),'Campus Nord Portal')
+ assert.equal(await page.getByLabel('Domain',{exact:true}).inputValue(),'login.campus-nord.lan')
  await page.getByLabel('Domain',{exact:true}).fill('nord.campus.lan')
  await page.getByRole('button',{name:'Speichern',exact:true}).click()
  await page.waitForFunction(()=>document.title==='Campus Nord')

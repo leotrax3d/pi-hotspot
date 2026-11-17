@@ -109,7 +109,7 @@ export function WebActivity({ confirm }: { confirm: Confirm }) {
       <Alert>
         <ShieldAlert />
         <AlertDescription>
-          SchülerWLAN protokolliert DNS-Domains, keine vollständigen
+          Das DNS-Log erfasst Domains, keine vollständigen
           HTTPS-Adressen, Seiteninhalte oder Suchbegriffe. Geräte mit
           verschlüsseltem oder eigenem DNS können Einträge umgehen. Informiere
           die Nutzer über diese Protokollierung.
@@ -187,7 +187,7 @@ export function WebActivity({ confirm }: { confirm: Confirm }) {
             </Pane>
             <Pane
               title="Speicherung"
-              description="Lokal auf diesem SchülerWLAN."
+              description="Lokal."
             >
               <div className="feature-list">
                 <div>
@@ -248,7 +248,7 @@ export function WebActivity({ confirm }: { confirm: Confirm }) {
                   <EmptyDescription>
                     {query
                       ? "Passe den Suchbegriff oder Zeitraum an."
-                      : "Sobald ein verbundenes Gerät eine Domain über SchülerWLAN auflöst, erscheint sie hier."}
+                      : "Noch keine Anfragen."}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
