@@ -10,6 +10,10 @@ TLS=Path('/etc/qspot/tls')
 
 
 def apply(c):
+ hostfile=Path('/etc/hosts');text=hostfile.read_text()
+ updated=re.sub(r'^127\.0\.1\.1\s+.*$',lambda _: '127.0.1.1\t'+c['hostname'],text,flags=re.M)
+ if not re.search(r'^127\.0\.1\.1\s',updated,re.M):updated+='\n127.0.1.1\t'+c['hostname']+'\n'
+ if updated!=text:hostfile.write_text(updated)
  run('hostnamectl','set-hostname',c['hostname'])
  desired=certificate_names(c)
  marker=TLS/'identity.json'
