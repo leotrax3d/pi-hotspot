@@ -87,7 +87,7 @@ def write_dkms_source(repo,source):
  monitor_condition=r'#if \(LINUX_VERSION_CODE >= KERNEL_VERSION\(6, 13, 0\)\) \|\| \\\n\s*\(LINUX_VERSION_CODE >= KERNEL_VERSION\(6, 12, 101\)\)'
  for path in (source/'aic8800_fdrv').iterdir():
   if path.suffix in ('.c','.h'):
-   text=path.read_text();text=re.sub(monitor_condition,'#if defined(PI_HOTSPOT_MONITOR_NETDEV)',text);path.write_text(text)
+   text=path.read_bytes();text=re.sub(monitor_condition.encode(),b'#if defined(PI_HOTSPOT_MONITOR_NETDEV)',text);path.write_bytes(text)
  # Brostrend/post-switch variant uses the D81 firmware family.
  for module in ('aic_load_fw','aic8800_fdrv'):
   usb=source/module/'aicwf_usb.c';text=usb.read_text()
