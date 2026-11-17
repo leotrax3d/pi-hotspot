@@ -44,6 +44,11 @@ def inventory(root=Path('/sys/bus/usb/devices'),net=Path('/sys/class/net')):
 
 
 def apply_usb_patches(repo):
+ # Vendor sources mix CRLF and LF. Normalize before applying Debian's LF patches.
+ for path in (repo/'src/USB').rglob('*'):
+  if path.is_file() and (path.suffix in ('.c','.h','.mk') or path.name=='Makefile'):
+   raw=path.read_bytes()
+   if b'\r\n' in raw:path.write_bytes(raw.replace(b'\r\n',b'\n'))
  series=repo/'debian/patches/series'
  for line in series.read_text().splitlines():
   name=line.split('#',1)[0].strip()
@@ -51,7 +56,7 @@ def apply_usb_patches(repo):
   patch=repo/'debian/patches'/name
   if not patch.is_file():raise ValueError('Fehlender Treiber-Patch: '+name)
   if 'src/USB/' not in patch.read_text():continue
-  command('git','apply','--include=src/USB/*','--allow-empty',str(patch),cwd=repo)
+  command('git','apply','--ignore-whitespace','--include=src/USB/*','--allow-empty',str(patch),cwd=repo)
 
 
 def dkms_config():
