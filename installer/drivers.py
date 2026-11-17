@@ -79,7 +79,15 @@ def write_dkms_source(repo,source):
  for module in ('aic_load_fw','aic8800_fdrv'):shutil.copytree(base/module,source/module)
  for makefile in source.rglob('Makefile'):
   text=makefile.read_text();text=re.sub(r'MAKEFLAGS\s*\+=-j\$\(shell nproc\)','MAKEFLAGS +=-j2',text)
+  if makefile.parent.name=='aic8800_fdrv':
+   text+='\nPI_HOTSPOT_MONITOR_NETDEV := $(shell sed -n "/int (\\*set_monitor_channel)/,+3p" $(srctree)/include/net/cfg80211.h | grep -q "struct net_device" && echo y)\nccflags-$(PI_HOTSPOT_MONITOR_NETDEV) += -DPI_HOTSPOT_MONITOR_NETDEV\n'
   makefile.write_text(text)
+ # Stable distribution kernels backport cfg80211 API changes without changing
+ # LINUX_VERSION_CODE. Select the signature from the actual build headers.
+ monitor_condition=r'#if \(LINUX_VERSION_CODE >= KERNEL_VERSION\(6, 13, 0\)\) \|\| \\\n\s*\(LINUX_VERSION_CODE >= KERNEL_VERSION\(6, 12, 101\)\)'
+ for path in (source/'aic8800_fdrv').iterdir():
+  if path.suffix in ('.c','.h'):
+   text=path.read_text();text=re.sub(monitor_condition,'#if defined(PI_HOTSPOT_MONITOR_NETDEV)',text);path.write_text(text)
  # Brostrend/post-switch variant uses the D81 firmware family.
  for module in ('aic_load_fw','aic8800_fdrv'):
   usb=source/module/'aicwf_usb.c';text=usb.read_text()

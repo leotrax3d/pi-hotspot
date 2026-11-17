@@ -80,6 +80,13 @@ def public_identity():
 @app.get('/api/branding')
 def branding():return jsonify(public_identity())
 
+def branded_html(path):
+ import re
+ c=public_identity();text=Path(path).read_text()
+ text=re.sub(r'<title>.*?</title>',lambda _: '<title>'+escape(c['brand_name'])+'</title>',text,flags=re.S)
+ meta='<meta name="portal-brand" content="'+escape(c['brand_name'],quote=True)+'"><meta name="portal-domain" content="'+escape(c['portal_domain'],quote=True)+'">'
+ return text.replace('</head>',meta+'</head>')
+
 @app.get('/api/auth')
 def auth_status():
  session.setdefault('csrf',secrets.token_urlsafe(32))
@@ -226,7 +233,7 @@ def index():
   from flask import redirect
   return redirect('https://'+request.host.split(':')[0]+'/admin',code=302)
  modern=Path(__file__).parent/'static'/'app'/'index.html'
- return send_file(modern if modern.exists() else Path(__file__).parent/'static'/'admin.html')
+ return branded_html(modern if modern.exists() else Path(__file__).parent/'static'/'admin.html')
 @app.get('/favicon.ico')
 def favicon():return send_file(Path(__file__).parent/'static'/'icons'/'router.svg',mimetype='image/svg+xml')
 @app.get('/')
@@ -244,7 +251,7 @@ def portal():
  return (Path(__file__).parent/'static'/'portal.html').read_text().replace('__PORTAL_TOKEN__',portal_token()).replace('__BRAND_NAME__',escape(c['brand_name'])).replace('__PORTAL_DOMAIN__',escape(c['portal_domain']))
 @app.get('/community')
 @app.get('/community/')
-def community_page(): return send_file(Path(__file__).parent/'static'/'app'/'community.html')
+def community_page(): return branded_html(Path(__file__).parent/'static'/'app'/'community.html')
 @app.get('/<path:probe>')
 def probes(probe):
  from flask import redirect

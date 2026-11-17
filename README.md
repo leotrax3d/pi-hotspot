@@ -59,7 +59,7 @@ Der Treiber muss AP und Station gleichzeitig erlauben. Ein Kanalwechsel des
 Upstream-WLANs kann eine Neueinrichtung des Hotspots erfordern. 5-GHz- und
 DFS-Hotspots sind in dieser Version nicht implementiert.
 
-USB-Adapter benötigen einen bereits funktionierenden Linux-Treiber mit AP-Modus.
+USB-Adapter benötigen einen Linux-Treiber mit AP-Modus.
 Der Installer erkennt USB-WLAN-Adapter und richtet unterstützte Treiber automatisch ein. AIC8800-Adapter einschließlich UGREEN CM762/CM763 erhalten einen gepinnten Radxa-DKMS-Treiber, Firmware, passende Kernel-Header und erforderliche USB-Moduswechsel. Realtek/MediaTek werden über Kernelmodule und Distributions-Firmware versorgt. Ein generischer 1111:1111-Datenträger wird ohne passende Produktkennung nur nach expliziter Modellauswahl umgeschaltet. Unbekannte Chips werden nicht mit einem beliebigen Fremdtreiber behandelt. Ein erfolgreicher Build bestätigt noch keinen AP-Betrieb auf jedem Pi.
 LAN + integriertes WLAN ist die Ausgangskonfiguration mit den wenigsten
 Treiberabhängigkeiten.
