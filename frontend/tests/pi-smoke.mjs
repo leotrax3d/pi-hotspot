@@ -12,7 +12,7 @@ const config={hostname:'pi-hotspot',ssid:'Test Hotspot',guest:'10.77.0.1/24',usb
  profiles:{standard:{bytes:0,seconds:0,down_kbit:0,up_kbit:0,devices:0,concurrent:0}},
  default_profile:'standard',global_down_kbit:0,global_up_kbit:0,usb_down_kbit:0,usb_up_kbit:0,
  vpn:'both',vpn_server:'test',onboarding_complete:true,matrix:{enabled:false,brightness:2,night_start:'22:00',night_end:'07:00'},
- features:{chat:true,singleplayer:true,multiplayer:true,vpn:true}}
+ brand_name:'Campus',portal_domain:'login.campus.lan',features:{chat:true,singleplayer:true,multiplayer:true,vpn:true}}
 const status={connected_guests:1,associated_macs:['02:00:00:00:00:01'],vpn_enabled:true,vpn:'connected',
  host_connected:true,internet:true,host:'',uplink_interface:'eth0',network_mode:'lan',
  rates:{eth0:{rx_bytes:10000,tx_bytes:1000,rx_Bps:1024,tx_Bps:512}},
@@ -26,12 +26,14 @@ const server=createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost')
   if(url.pathname.startsWith('/api/')){
    let result
-   if(url.pathname==='/api/auth')result={csrf:'test',setup:false,authenticated:true}
+   if(url.pathname==='/api/auth')result={csrf:'test',setup:false,authenticated:true,brand_name:config.brand_name,portal_domain:config.portal_domain}
+   else if(url.pathname==='/api/branding')result={brand_name:config.brand_name,portal_domain:config.portal_domain}
    else if(url.pathname==='/api/admin/config')result=config
    else if(url.pathname==='/api/admin/status')result=status
    else if(url.pathname==='/api/admin/action'){
     const chunks=[];for await(const chunk of req)chunks.push(chunk)
     const action=JSON.parse(Buffer.concat(chunks));actions.push(action)
+    if(action.method==='apply')Object.assign(config,action.config)
     if(action.method==='device_vpn')status.sessions[0].vpn=action.enabled
     if(action.method==='vpn_toggle'){status.vpn_enabled=action.enabled;status.vpn=action.enabled?'connected':'off';config.vpn=action.enabled?'both':'off'}
     result={result:true}
@@ -57,9 +59,22 @@ try{
  await toggle.click();await page.waitForFunction(()=>document.querySelector('button[role=switch][aria-label="VPN f\u00fcr 10.77.0.20"]')?.getAttribute('aria-checked')==='false')
  assert(actions.some(a=>a.method==='device_vpn'&&a.enabled===false))
  await page.getByRole('switch',{name:'Mullvad f\u00fcr alle Ger\u00e4te'}).click()
- await page.getByText('VPN ausgeschaltet',{exact:true}).waitFor()
+ await page.getByRole('status').filter({hasText:'Aus'}).waitFor()
  assert(actions.some(a=>a.method==='vpn_toggle'&&a.enabled===false))
- await page.setViewportSize({width:390,height:844})
+ assert.equal(await page.title(),'Campus')
+ assert.equal(await page.getByRole('link',{name:'Portal öffnen'}).getAttribute('href'),'https://login.campus.lan/')
+ if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'dashboard-desktop.png'),fullPage:true})
+ await page.getByRole('link',{name:'Einstellungen',exact:true}).click()
+ await page.getByLabel('Name',{exact:true}).fill('Campus Nord')
+ await page.getByLabel('Domain',{exact:true}).fill('nord.campus.lan')
+ await page.getByRole('button',{name:'Speichern',exact:true}).click()
+ await page.waitForFunction(()=>document.title==='Campus Nord')
+ assert(actions.some(a=>a.method==='apply'&&a.config.brand_name==='Campus Nord'&&a.config.portal_domain==='nord.campus.lan'))
+ if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'branding-settings.png'),fullPage:true})
+ await page.getByRole('link',{name:'Übersicht',exact:true}).click()
+ await page.locator('.console-dashboard').waitFor();await page.waitForFunction(()=>{const e=document.querySelector('.console-dashboard');return e&&Number(getComputedStyle(e.closest('[style]')||e).opacity)>0.99});
+ await page.setViewportSize({width:390,height:844});await page.waitForTimeout(400)
+ if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'dashboard-mobile.png'),fullPage:true})
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false)
  assert.deepEqual(errors,[])
  console.log('Pi dashboard, device VPN, global VPN and mobile layout: OK')

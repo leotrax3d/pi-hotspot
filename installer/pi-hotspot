@@ -11,11 +11,14 @@ case "${1:-help}" in
   configure)
     exec python3 /opt/qspot/installer/setup.py --reconfigure
     ;;
+  drivers)
+    exec python3 /opt/qspot/installer/drivers.py
+    ;;
   backup)
     exec python3 /opt/qspot/installer/update.py --backup-only
     ;;
   update)
     exec python3 /opt/qspot/installer/update.py
     ;;
-  *) echo 'pi-hotspot {status|logs|configure|backup|update}' ;;
+  *) echo 'pi-hotspot {status|logs|configure|drivers|backup|update}' ;;
 esac

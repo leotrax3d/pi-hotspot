@@ -18,6 +18,8 @@ Internetverbindung ausführen:
 curl -fsSL https://raw.githubusercontent.com/leotrax3d/pi-hotspot/main/install.sh -o /tmp/pi-hotspot-install.sh && sudo bash /tmp/pi-hotspot-install.sh
 ```
 
+Bei fehlenden USB-Treibern zeigt der Assistent zuerst eine separate Treiber-Zusammenfassung und richtet sie nach Bestätigung ein. Dafür ist eine bereits funktionierende Internetverbindung erforderlich.
+
 Der Assistent fragt alle Einstellungen in der Kommandozeile ab. Er zeigt vor
 Änderungen eine Zusammenfassung und verlangt eine Bestätigung. Passwörter werden
 verdeckt eingegeben. Die Installation benötigt Root-Rechte auf dem **Pi**;
@@ -57,10 +59,8 @@ Der Treiber muss AP und Station gleichzeitig erlauben. Ein Kanalwechsel des
 Upstream-WLANs kann eine Neueinrichtung des Hotspots erfordern. 5-GHz- und
 DFS-Hotspots sind in dieser Version nicht implementiert.
 
-USB-Adapter benötigen einen bereits funktionierenden Linux-Treiber mit AP-Modus.
-Der Installer erkennt Schnittstellen und prüft gemeldete Fähigkeiten; er
-installiert **keine beliebigen Fremdtreiber automatisch**. Insbesondere ist
-UGREEN CM762/CM763 mit AIC8800D80 kein bestätigtes Plug-and-play-Gerät auf dem Pi.
+USB-Adapter benötigen einen Linux-Treiber mit AP-Modus.
+Der Installer erkennt USB-WLAN-Adapter und richtet unterstützte Treiber automatisch ein. AIC8800-Adapter einschließlich UGREEN CM762/CM763 erhalten einen gepinnten Radxa-DKMS-Treiber, Firmware, passende Kernel-Header und erforderliche USB-Moduswechsel. Realtek/MediaTek werden über Kernelmodule und Distributions-Firmware versorgt. Ein generischer 1111:1111-Datenträger wird ohne passende Produktkennung nur nach expliziter Modellauswahl umgeschaltet. Unbekannte Chips werden nicht mit einem beliebigen Fremdtreiber behandelt. Ein erfolgreicher Build bestätigt noch keinen AP-Betrieb auf jedem Pi.
 LAN + integriertes WLAN ist die Ausgangskonfiguration mit den wenigsten
 Treiberabhängigkeiten.
 
@@ -86,6 +86,12 @@ es wird ein gemeinsames Softwarepaket installiert. Datenvolumen, Sitzungsdauer
 und Bandbreite sind standardmäßig unbegrenzt und im Dashboard konfigurierbar.
 Die Arduino-LED-Matrix gehört nicht zur Pi-Version.
 
+## Name und Portal-Adresse
+
+Anzeigename, Portal-Domain, WLAN-SSID, Titel und Portaltexte sind im Installer und unter **Einstellungen** frei konfigurierbar. Beispiel: `Campus Nord` und `login.campus.lan`. DNS, Weiterleitungen, Browser-Titel, Chat, Dashboard, Authenticator-Name und das lokale TLS-Zertifikat folgen der Konfiguration. Domains werden als DNS-Namen validiert; URLs mit Pfad oder Port sind keine Domain. Internationale Domains werden in IDNA umgewandelt.
+
+Die Adresse wird im Hotspot lokal aufgelöst. Ein eigener Name registriert keine öffentliche Domain. Namen unter `.local` erhalten bei Bedarf einen Avahi-Eintrag für die Hotspot-IP. Auf dem Uplink bleibt die Pi-IP die Ausweichadresse. Nach einer Domain-Änderung muss das neu erzeugte lokale Zertifikat erneut geprüft werden. Netzwerkänderungen erfordern weiter die Erreichbarkeitsbestätigung innerhalb von 120 Sekunden.
+
 ## Verwaltung
 
 Nach der Einrichtung: **https://pi-hotspot.local/admin** oder
@@ -100,6 +106,7 @@ vergleichen. Admin-Passwort und Hotspot-Passwort sind getrennt.
 ```bash
 sudo pi-hotspot status       # Dienste
 sudo pi-hotspot logs         # Diagnose
+sudo pi-hotspot drivers      # USB-WLAN-Treiber erkennen/einrichten
 sudo pi-hotspot configure    # Assistent erneut vollständig durchlaufen
 sudo pi-hotspot backup       # lokale Root-Sicherung
 sudo pi-hotspot update       # manuelles Update von main mit Sicherung
@@ -151,7 +158,7 @@ sudo python3 /var/backups/pi-hotspot/<Zeitstempel>/rollback.py /var/backups/pi-h
 ```
 
 Wiederherstellung setzt die gesicherten Projekt-/Netzwerkdateien zurück. Bereits
-installierte Linux-Pakete und der Systembenutzer werden nicht entfernt. Sie ist
+installierte Linux-Pakete, USB-Treiber, Firmware, DKMS-Registrierungen und der Systembenutzer werden nicht entfernt. Sie ist
 kein vollständiges SD-Karten-Image und stellt keine fremden Firewall-Dienste
 wieder her. Gedacht für einen dedizierten, frisch installierten Pi.
 
@@ -186,3 +193,5 @@ Eigener Projektcode: [MIT](LICENSE). Eingebundene Bibliotheken und Schriftarten
 behalten ihre jeweiligen Lizenzen; siehe `THIRD_PARTY_LICENSES.txt` und die
 Paketmetadaten in `frontend/package-lock.json`. Es werden keine persönlichen
 Zugangsdaten, Mullvad-Profile oder Daten vom Arduino veröffentlicht.
+
+USB-Treiberquelle: [Radxa AIC8800, gepinnter Stand](https://github.com/radxa-pkg/aic8800/tree/5562c254b0231be34588dc608ec28c4f1d613285). [UGREEN Linux-Treiber für CM762/CM763](https://www.lulian.cn/download/462.html). [AIC-Moduswechsel auf Raspberry Pi](https://github.com/olamellberg/AIC8800D80/tree/98ccdbf60385f6bdb8071588ec95164aa606ca14). Treiber und Firmware bleiben unter ihren jeweiligen Upstream-Lizenzen; der Installer lädt sie getrennt herunter.

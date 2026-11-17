@@ -5,6 +5,8 @@ from flask import Flask, request, session, jsonify, send_file, make_response
 from werkzeug.serving import make_server
 from common import atomic, password_hash, password_ok, rpc, totp
 from community import Community
+from branding import identity, portal_url, otp_uri
+from html import escape
 SIMULATE=os.environ.get('QSPOT_SIMULATE')=='1'
 if SIMULATE:
  from simulation import rpc
@@ -59,7 +61,7 @@ def guard():
 @app.after_request
 def headers(r):
  r.headers['X-Content-Type-Options']='nosniff'; r.headers['Referrer-Policy']='no-referrer'; r.headers['Cache-Control']='no-store'
- r.headers['Content-Security-Policy']="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self' https://schuelerwlan.lan https://qspot.lan https://pi-hotspot.local https://pi-hotspot.lan"
+ r.headers['Content-Security-Policy']="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
  if request.path.startswith('/static/app/assets/'):r.headers['Cache-Control']='public, max-age=31536000, immutable'
  return r
 @app.errorhandler(Exception)
@@ -68,13 +70,27 @@ def error(e):
  if request.path=='/portal/activate':
   from markupsafe import escape
   message=str(e) if isinstance(e,ValueError) else 'Der Zugang konnte gerade nicht freigeschaltet werden. Bitte erneut versuchen.'
-  return '<!doctype html><html lang="de"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SchülerWLAN · Zugang</title><link rel="stylesheet" href="/static/style.css"><body class="portal"><h1>Zugang noch nicht aktiv</h1><p>'+str(escape(message))+'</p><a href="http://schuelerwlan.lan/">Zurück zum Portal</a></body></html>',400
+  return '<!doctype html><html lang="de"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zugang</title><link rel="stylesheet" href="/static/style.css"><body class="portal"><h1>Zugang noch nicht aktiv</h1><p>'+str(escape(message))+'</p><a href="/">Zurück zum Portal</a></body></html>',400
  return jsonify(error=str(e) if isinstance(e,(ValueError,HTTPException)) else 'Aktion fehlgeschlagen; Systemdiagnose prüfen'),e.code if isinstance(e,HTTPException) else 400
+
+def public_identity():
+ try:return identity(rpc('config'))
+ except (OSError,ValueError):return identity({})
+
+@app.get('/api/branding')
+def branding():return jsonify(public_identity())
+
+def branded_html(path):
+ import re
+ c=public_identity();text=Path(path).read_text()
+ text=re.sub(r'<title>.*?</title>',lambda _: '<title>'+escape(c['brand_name'])+'</title>',text,flags=re.S)
+ meta='<meta name="portal-brand" content="'+escape(c['brand_name'],quote=True)+'"><meta name="portal-domain" content="'+escape(c['portal_domain'],quote=True)+'">'
+ return text.replace('</head>',meta+'</head>')
 
 @app.get('/api/auth')
 def auth_status():
  session.setdefault('csrf',secrets.token_urlsafe(32))
- return jsonify(csrf=session['csrf'],setup=auth() is None,authenticated=valid_admin(),simulation=SIMULATE)
+ return jsonify(csrf=session['csrf'],setup=auth() is None,authenticated=valid_admin(),simulation=SIMULATE,**public_identity())
 @app.post('/api/setup')
 def setup():
  with authlock:
@@ -135,7 +151,7 @@ def security():
    a['password']=password_hash(d['new_password']); save_sessions({})
   if d.get('generate_totp'):
    secret=base64.b32encode(secrets.token_bytes(20)).decode(); session['pending_totp']=secret
-   return jsonify(secret=secret,uri='otpauth://totp/SchülerWLAN:admin?secret='+secret+'&issuer=SchülerWLAN')
+   return jsonify(secret=secret,uri=otp_uri(rpc('config'),secret))
   if d.get('enable_totp'):
    secret=session.get('pending_totp','')
    if not secret or not totp(secret,d.get('otp','')): raise ValueError('2FA-Code ungültig')
@@ -167,7 +183,7 @@ def feature(name):
 
 def community_allowed():
  data=rpc('portal',ip=request.remote_addr)
- if not (data.get('session') or {}).get('active'): raise ValueError('Zuerst mit dem SchülerWLAN verbinden')
+ if not (data.get('session') or {}).get('active'): raise ValueError('Zuerst verbinden')
  return request.remote_addr
 @app.get('/api/community/state')
 def community_state():
@@ -202,14 +218,14 @@ def portal_activate():
  # Browser form POST only: links and previews never redeem a code.
  if not portal_token_ok(request.form.get('portal_token','')): raise ValueError('Das Formular ist abgelaufen. Bitte zurück zum Portal gehen und die Seite neu laden.')
  if request.form.get('accepted')!='yes': raise ValueError('Nutzungsbedingungen bitte akzeptieren')
- if request.form.get('code','').strip() and not request.is_secure: raise ValueError('Zugangscodes bitte über https://schuelerwlan.lan eingeben. Lokales Zertifikat zuerst prüfen und vertrauen.')
+ if request.form.get('code','').strip() and not request.is_secure: raise ValueError('Zugangscodes benötigen HTTPS')
  result=rpc('activate',ip=request.remote_addr,code=request.form.get('code','').strip() or None)
  from flask import redirect
  return redirect('/?connected=1',code=303)
 @app.get('/captive-api')
 def captive_api():
  data=rpc('portal',ip=request.remote_addr); s=data.get('session')
- r=jsonify({'captive':not(s and s['active']),'user-portal-url':request.host_url,'seconds-remaining':s.get('remaining_seconds') if s else None}); r.content_type='application/captive+json'; return r
+ r=jsonify({'captive':not(s and s['active']),'user-portal-url':data.get('portal_url',portal_url(public_identity())),'seconds-remaining':s.get('remaining_seconds') if s else None}); r.content_type='application/captive+json'; return r
 @app.get('/admin')
 @app.get('/admin/')
 def index():
@@ -217,24 +233,25 @@ def index():
   from flask import redirect
   return redirect('https://'+request.host.split(':')[0]+'/admin',code=302)
  modern=Path(__file__).parent/'static'/'app'/'index.html'
- return send_file(modern if modern.exists() else Path(__file__).parent/'static'/'admin.html')
+ return branded_html(modern if modern.exists() else Path(__file__).parent/'static'/'admin.html')
 @app.get('/favicon.ico')
 def favicon():return send_file(Path(__file__).parent/'static'/'icons'/'router.svg',mimetype='image/svg+xml')
 @app.get('/')
 def portal():
  from urllib.parse import urlsplit
  host=request.host.split(':')[0]
- if host not in ('pi-hotspot.local','pi-hotspot.lan','schuelerwlan.lan','qspot.lan','qspot.local','127.0.0.1',rpc('config').get('hostname','pi-hotspot')+'.local'):
+ c=public_identity()
+ if host not in (c['portal_domain'],'127.0.0.1','localhost'):
   try:
    import ipaddress
    ipaddress.ip_address(host)
   except ValueError:
    from flask import redirect
-   return redirect('http://schuelerwlan.lan/',code=302)
- return (Path(__file__).parent/'static'/'portal.html').read_text().replace('__PORTAL_TOKEN__',portal_token())
+   return redirect(portal_url(c,request.is_secure),code=302)
+ return (Path(__file__).parent/'static'/'portal.html').read_text().replace('__PORTAL_TOKEN__',portal_token()).replace('__BRAND_NAME__',escape(c['brand_name'])).replace('__PORTAL_DOMAIN__',escape(c['portal_domain']))
 @app.get('/community')
 @app.get('/community/')
-def community_page(): return send_file(Path(__file__).parent/'static'/'app'/'community.html')
+def community_page(): return branded_html(Path(__file__).parent/'static'/'app'/'community.html')
 @app.get('/<path:probe>')
 def probes(probe):
  from flask import redirect
@@ -243,7 +260,7 @@ def probes(probe):
   if probe in ('generate_204','gen_204'): return '',204
   if probe in ('connecttest.txt','ncsi.txt'): return 'Microsoft Connect Test' if probe=='connecttest.txt' else 'Microsoft NCSI',200
   if probe=='hotspot-detect.html': return '<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>'
- return redirect(data.get('portal_url','http://schuelerwlan.lan/'),code=302)
+ return redirect(data.get('portal_url',portal_url(public_identity())),code=302)
 
 if __name__=='__main__':
  logging.getLogger('werkzeug').setLevel(logging.ERROR)
@@ -251,5 +268,18 @@ if __name__=='__main__':
   make_server('127.0.0.1',8080,app,threaded=True).serve_forever()
   raise SystemExit
  http=make_server('0.0.0.0',8080,app,threaded=True)
- https=make_server('0.0.0.0',8443,app,threaded=True,ssl_context=('/etc/qspot/tls/cert.pem','/etc/qspot/tls/key.pem'))
+ import ssl
+ context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+ context.load_cert_chain('/etc/qspot/tls/cert.pem','/etc/qspot/tls/key.pem')
+ def reload_tls():
+  stamp=None
+  while True:
+   try:
+    current=Path('/etc/qspot/tls/cert.pem').stat().st_mtime_ns
+    if current!=stamp:
+     context.load_cert_chain('/etc/qspot/tls/cert.pem','/etc/qspot/tls/key.pem');stamp=current
+   except (OSError,ssl.SSLError):pass
+   time.sleep(2)
+ threading.Thread(target=reload_tls,daemon=True).start()
+ https=make_server('0.0.0.0',8443,app,threaded=True,ssl_context=context)
  threading.Thread(target=http.serve_forever,daemon=True).start(); https.serve_forever()

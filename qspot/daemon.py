@@ -2,6 +2,7 @@ import copy, hashlib, ipaddress, json, os, re, secrets, socketserver, sqlite3, t
 from pathlib import Path
 from common import STATE, DEFAULT, atomic, run, validate
 import network
+from branding import identity, portal_url
 
 LOCK=threading.RLock()
 CONFIG=STATE/'config.json'
@@ -11,7 +12,8 @@ ERROR=''
 RECOVERY=[]
 RECOVERY_UNTIL=0
 
-def config(): return json.loads(CONFIG.read_text())
+def config():
+ c=json.loads(CONFIG.read_text());return {**c,**identity(c)}
 
 def restore_sessions(c,active):
  associated=set(network.associated())
@@ -234,9 +236,10 @@ def dispatch(d):
   clear();return True
  if method=='portal':
   visible={k:c[k] for k in ('title','description','accept_text','terms','portal_mode')}
+  visible.update(identity(c))
   visible['features']=c.get('features',{})
   if c.get('dns_logging'):visible['terms']+=' DNS-Domains werden lokal bis zu '+str(c.get('dns_retention_hours',24))+' Stunden gespeichert. Keine vollständigen HTTPS-Adressen.'
-  visible['portal_url']='http://'+str(ipaddress.ip_interface(c['guest']).ip)+'/'
+  visible['portal_url']=portal_url(c)
   try:
    mac,ip=peer(d['ip']); s=rows('SELECT * FROM sessions WHERE mac=? ORDER BY id DESC LIMIT 1',(mac,)); visible['session']=session_view(s[0]) if s else None
   except ValueError: visible['session']=None

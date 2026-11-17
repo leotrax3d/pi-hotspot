@@ -15,7 +15,7 @@ UMask=0077
 ProtectHome=yes
 PrivateTmp=yes
 ProtectSystem=strict
-ReadWritePaths=/run /var/lib/qspot /etc/NetworkManager/system-connections /etc/hostname /etc/hosts
+ReadWritePaths=/run /var/lib/qspot /etc/NetworkManager/system-connections /etc/hostname /etc/hosts /etc/qspot/tls /etc/avahi/hosts
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 NoNewPrivileges=yes
 [Install]

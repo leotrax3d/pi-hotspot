@@ -3,6 +3,7 @@ import functools, ipaddress, json, os, re, shutil, time
 from pathlib import Path
 from common import run, STATE
 from platform_config import load
+from branding import identity
 
 PLATFORM=load()
 AP=PLATFORM['ap']
@@ -101,6 +102,8 @@ def radio_channel(c):
 
 def setup(c):
  base(c)
+ from identity_files import apply
+ apply(c)
  run('sysctl','-w','net.ipv4.ip_forward=1')
  run('sysctl','-w','net.ipv4.conf.all.rp_filter=2')
  if PLATFORM['mode']=='single' and not Path('/sys/class/net/'+AP).exists():
@@ -125,7 +128,7 @@ def dns(c):
  servers=[ip+'@qspot-wg' for ip in vpn_dns(c)] if c['vpn']!='off' else hostdns
  ip=ipaddress.ip_interface(c['guest']);net=ip.network
  cfg=f'interface={AP}\nbind-dynamic\nexcept-interface=lo\nlisten-address={ip.ip}\nno-resolv\ndomain-needed\nbogus-priv\nlog-async=25\ndhcp-authoritative\ndhcp-range={net.network_address+20},{net.network_address+220},255.255.255.0,1h\ndhcp-option=3,{ip.ip}\ndhcp-option=6,{ip.ip}\ndhcp-leasefile=/run/qspot-dns-guest/leases\ndhcp-option=114,http://{ip.ip}/captive-api\n'
- cfg+=''.join(f'address=/{name}/{ip.ip}\n' for name in ('pi-hotspot.local','pi-hotspot.lan','schuelerwlan.lan','qspot.lan',c['hostname']+'.local'))
+ cfg+=''.join(f'host-record={name},{ip.ip}\n' for name in dict.fromkeys((identity(c)['portal_domain'],c['hostname']+'.local')))
  cfg+=''.join('server='+s+'\n' for s in servers)
  if c.get('dns_logging'):cfg+='log-queries=extra\nlog-facility=/run/qspot-dns-guest/queries.log\n'
  Path('/run/qspot/dns-guest.conf').write_text(cfg)

@@ -21,9 +21,9 @@ def restore(directory):
  targets=data['targets']
  allowed={'/opt/qspot','/etc/qspot','/var/lib/qspot','/var/lib/qspot-web',
           '/etc/NetworkManager/system-connections','/etc/NetworkManager/conf.d/90-pi-hotspot.conf',
-          '/etc/sysctl.d/90-pi-hotspot.conf','/etc/hostname','/etc/hosts','/usr/local/bin/pi-hotspot'}
+          '/etc/sysctl.d/90-pi-hotspot.conf','/etc/avahi/hosts','/etc/hostname','/etc/hosts','/usr/local/bin/pi-hotspot'}
  allowed.update('/etc/systemd/system/'+u for u in ('qspot-net.service','qspot-web.service','qspot-hostapd.service','qspot-dns@.service'))
- if set(targets)!=allowed:raise ValueError('Ungültiges Sicherungsmanifest')
+ if set(targets) not in (allowed,allowed-{'/etc/avahi/hosts'}):raise ValueError('Ungültiges Sicherungsmanifest')
  p=Path('/etc/qspot/platform.json')
  current=json.loads(p.read_text()) if p.exists() else {}
  for unit in ('qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest'):
