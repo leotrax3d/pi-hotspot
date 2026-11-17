@@ -30,6 +30,7 @@ def main():
   try:
    runtime.stage('Update vorbereiten')
    setup.command('systemctl','stop','qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest')
+   setup.command('systemctl','stop','qspot-pihole',check=False)
    for name in ('qspot','system','installer'):
     destination=Path('/opt/qspot')/name
     shutil.rmtree(destination);shutil.copytree(source/name,destination,ignore=shutil.ignore_patterns('__pycache__'))

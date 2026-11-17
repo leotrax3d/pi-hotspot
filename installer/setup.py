@@ -293,6 +293,7 @@ def install(c,p,wifi,vpn,auth):
   prepare(c)
   runtime.stage('Dienste anhalten')
   command('systemctl','stop','qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest',check=False)
+  command('systemctl','stop','qspot-pihole',check=False)
   if command('id','-u','qspot',check=False,quiet=True)=='':
    command('useradd','--system','--home-dir','/var/lib/qspot-web','--shell','/usr/sbin/nologin','qspot')
   runtime.stage('Dateien und Zugang einrichten')
