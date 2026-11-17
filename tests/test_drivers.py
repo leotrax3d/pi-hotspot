@@ -1,6 +1,8 @@
 import importlib.util
 import tempfile
 import unittest
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -41,3 +43,17 @@ class DriverTests(unittest.TestCase):
    repo=Path(temp);folder=repo/'debian/patches';folder.mkdir(parents=True)
    (folder/'series').write_text('test.patch\n');(folder/'test.patch').write_text('src/USB/test.c')
    with patch.object(drivers,'command',side_effect=RuntimeError('bad patch')),self.assertRaises(RuntimeError):drivers.apply_usb_patches(repo)
+
+ def test_build_probe_uses_header_signature(self):
+  with tempfile.TemporaryDirectory() as temp:
+   repo=Path(temp)/'repo';source=Path(temp)/'build';source.mkdir()
+   for name in ('aic_load_fw','aic8800_fdrv'):
+    module=repo/'src/USB/driver_fw/drivers/aic8800'/name;module.mkdir(parents=True)
+    (module/'Makefile').write_text('MAKEFLAGS +=-j$(shell nproc)\n')
+    (module/'aicwf_usb.c').write_text('static struct usb_device_id aicwf_usb_id_table[] = {\n};\n')
+   drivers.write_dkms_source(repo,source)
+   header=Path(temp)/'cfg80211.h';probe=source/'aic8800_fdrv/pi_hotspot_probe.py'
+   header.write_text('int (*set_monitor_channel)(struct wiphy *wiphy,\n struct net_device *dev,\n struct cfg80211_chan_def *chandef);')
+   self.assertEqual(subprocess.check_output([sys.executable,str(probe),str(header)],text=True).strip(),'-DPI_HOTSPOT_MONITOR_NETDEV')
+   header.write_text('int (*set_monitor_channel)(struct wiphy *wiphy, struct cfg80211_chan_def *chandef);')
+   self.assertEqual(subprocess.check_output([sys.executable,str(probe),str(header)],text=True).strip(),'')
