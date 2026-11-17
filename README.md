@@ -2,7 +2,7 @@
 
 Ein Raspberry Pi als WLAN-Hotspot mit animiertem SchülerWLAN-Portal,
 shadcn-Dashboard, Geräteverwaltung, Chat und Games. Optional mit Mullvad/WireGuard,
-VPN-Auswahl pro Gerät und lokalem DNS-Domain-Log.
+VPN-Auswahl pro Gerät, lokalem DNS-Domain-Log und optionalem [Pi-hole DNS-Schutz](docs/pihole.md).
 
 **Status: erste Raspberry-Pi-Portierung.** Der Ausgangscode stammt direkt vom
 laufenden Arduino UNO Q. Softwaretests ersetzen keine Hardwaretests: eine

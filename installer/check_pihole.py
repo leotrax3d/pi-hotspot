@@ -24,6 +24,9 @@ def dataplane(c,state):
   run('ip','netns','exec',namespace,'ip','link','set',peer,'address','02:00:00:00:00:01')
   run('ip','netns','exec',namespace,'ip','addr','add','10.77.0.2/24','dev',peer)
   run('ip','netns','exec',namespace,'ip','link','set',peer,'up')
+  def apply_nft(script):
+   subprocess.run(['nft','-f','-'],input=script,text=True,check=True)
+  network.nft=apply_nft
   network.AP=ap;network.WAN='eth0';network.base(c)
   conf=state/'fallback.conf'
   conf.write_text('interface='+ap+'\nbind-interfaces\nlisten-address=10.77.0.1\nno-resolv\nno-hosts\nhost-record='+c['portal_domain']+',10.77.0.1\nlog-facility=/dev/null\n')

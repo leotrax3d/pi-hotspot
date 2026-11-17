@@ -239,6 +239,9 @@ def wait_ready(seconds=90):
    try:
     status=rpc('status')
     if not status.get('error'):
+     if status.get('features',{}).get('pihole'):
+      if command('systemctl','is-enabled','qspot-pihole',check=False,quiet=True)!='enabled':raise ValueError('DNS-Autostart fehlt')
+      if not rpc('dns_status').get('available'):raise ValueError('DNS-Schutz nicht bereit')
      context=ssl.create_default_context(cafile='/etc/qspot/tls/cert.pem');context.check_hostname=False
      with urlopen('https://127.0.0.1:8443/api/auth',context=context,timeout=3) as response:
       if json.load(response).get('setup'):raise ValueError('Admin-Zugang fehlt')
