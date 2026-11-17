@@ -202,7 +202,7 @@ def maintain(c):
   run('systemctl','restart','qspot-pihole',check=False);PURGED=0
  target=PORT if alive else 53
  if target!=ROUTED:
-  run('nft','-f','-',input=f'flush chain inet qspot guest_dns\nadd rule inet qspot guest_dns redirect to :{target}\n')
+  run('nft','-f','-',input=f'flush chain inet qspot guest_dns\nadd rule inet qspot guest_dns meta l4proto {{ tcp, udp }} redirect to :{target}\n')
   # Existing DNS conntrack entries otherwise retain their previous destination.
   run('conntrack','-D','-p','udp','--dport','53',check=False)
   run('conntrack','-D','-p','tcp','--dport','53',check=False)

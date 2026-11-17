@@ -77,6 +77,8 @@ with tempfile.TemporaryDirectory() as temp:
  (state/'pihole').mkdir()
  pihole.API='http://127.0.0.1:8081/api';pihole.PORT=5354
  run('docker','pull',pihole.IMAGE)
+ manifest=json.loads(run(ENGINE,'manifest','inspect',pihole.IMAGE))
+ assert any(x.get('platform',{}).get('architecture')=='arm64' for x in manifest.get('manifests',[])),'Official image has no ARM64 build'
  name='pi-hotspot-integration'
  unit=Path('/etc/systemd/system/qspot-pihole-test.service')
  try:

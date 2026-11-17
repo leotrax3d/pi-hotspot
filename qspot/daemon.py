@@ -409,7 +409,11 @@ def dispatch(d):
    atomic(CONFIG,json.loads((STATE/'previous.json').read_text())); (STATE/'pending.json').unlink(); network.setup(config())
   return True
  if method=='backup':
-  return {'config':c,'codes':rows('SELECT * FROM codes'),'sessions':rows('SELECT * FROM sessions'),'blocked':rows('SELECT * FROM blocked'),'vpn':{p.stem:json.loads(p.read_text()) for p in (STATE/'vpn').glob('*.json')}}
+  extra={}
+  if c.get('features',{}).get('pihole'):
+   import pihole
+   extra['pihole']={'domains':pihole.request('/domains').get('domains',[]),'clients':pihole.request('/clients').get('clients',[])}
+  return {**extra,'config':c,'codes':rows('SELECT * FROM codes'),'sessions':rows('SELECT * FROM sessions'),'blocked':rows('SELECT * FROM blocked'),'vpn':{p.stem:json.loads(p.read_text()) for p in (STATE/'vpn').glob('*.json')}}
  if method=='restart':
   service=d['service']
   if service not in ('qspot-hostapd','qspot-dns@guest','qspot-dns@usb'): raise ValueError('Dienst nicht freigegeben')

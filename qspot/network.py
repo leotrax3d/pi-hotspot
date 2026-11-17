@@ -81,7 +81,7 @@ def base(c):
  chain accounting {{ type filter hook forward priority -25; policy accept; }}
  chain quotas {{ type filter hook forward priority -26; policy accept; }}
  chain output {{ type filter hook output priority -30; policy accept; {protect}; }}
- chain guest_dns {{ redirect to :53; }}
+ chain guest_dns {{ meta l4proto {{ tcp, udp }} redirect to :53; }}
  chain portal_redirect {{ type nat hook prerouting priority dstnat; policy accept;
   ip daddr @localaddrs tcp dport 443 redirect to :8443
   ip daddr @localaddrs tcp dport 80 redirect to :8080
