@@ -13,7 +13,7 @@ class BrandingTests(unittest.TestCase):
  def test_domain_validation(self):
   for invalid in ('https://portal.lan','portal.lan/path','portal.lan:443','portal.lan\nserver=evil','127.0.0.1','localhost','-foo.lan','foo..lan','foo.lan?x',' foo.lan'):
    with self.subTest(invalid=invalid),self.assertRaises(ValueError):domain(invalid)
-  self.assertEqual(domain('Schüler.lan'),'xn--schler-4ya.lan')
+  self.assertEqual(domain('Schüler.lan'),'xn--schler-5ya.lan')
 
  def test_branding_is_backwards_compatible(self):
   self.assertEqual(identity({'hostname':'old-router'})['portal_domain'],'old-router.local')
