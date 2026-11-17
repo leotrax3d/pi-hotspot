@@ -64,6 +64,23 @@ def dataplane(c,state):
   assert pihole.ROUTED==pihole.PORT
   assert query(c['portal_domain'])['ip']=='10.77.0.1'
   assert pihole.request('/clients')['clients'][0]['groups']==[0]
+  # Logging is off by default in production: MAC filters must still work.
+  run('systemctl','stop','qspot-pihole-test')
+  environment=state/'pihole.env'
+  environment.write_text(environment.read_text().replace('FTLCONF_misc_privacylevel=0\n','FTLCONF_misc_privacylevel=3\n'))
+  c['dns_logging']=False;pihole.invalidate();pihole.LAST_HEALTH=0;pihole.reset_route()
+  run('systemctl','start','qspot-pihole-test')
+  for _ in range(30):
+   try:
+    pihole.LAST_HEALTH=0;pihole.maintain(c)
+    if pihole.ROUTED==pihole.PORT:break
+   except (ValueError,OSError):pass
+   time.sleep(1)
+  assert query('blocked.test')['ip']=='0.0.0.0'
+  pihole.action(c,{'operation':'device','mac':'02:00:00:00:00:01','enabled':False})
+  assert query('blocked.test')['ip']=='192.0.2.5'
+  assert pihole.view(c)['events']==[]
+  assert pihole.request('/queries?length=50')['queries']==[]
   print('Linux namespaces: real MAC selection, source identity, DNS redirect, filtered outage and restart recovery: OK')
  finally:
   if fallback:fallback.terminate();fallback.wait(timeout=5)
