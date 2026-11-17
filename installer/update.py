@@ -11,6 +11,7 @@ from pathlib import Path
 
 spec=importlib.util.spec_from_file_location('pi_setup',Path(__file__).with_name('setup.py'))
 setup=importlib.util.module_from_spec(spec);spec.loader.exec_module(setup)
+import runtime
 
 
 def main():
@@ -23,9 +24,10 @@ def main():
   setup.command('git','clone','--depth','1','https://github.com/leotrax3d/pi-hotspot.git',str(source))
   setup.command('python3','-m','compileall','-q',str(source/'qspot'),str(source/'installer'))
   saved=setup.backup();print('Sicherung:',saved)
-  setup.command('systemd-run','--unit=pi-hotspot-update-rollback','--on-active=5m',
-                '/usr/bin/python3',str(saved/'rollback.py'),str(saved))
+  runtime.begin(saved,'update',setup.ROOT)
+  committed=False
   try:
+   runtime.stage('Update vorbereiten')
    setup.command('systemctl','stop','qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest')
    for name in ('qspot','system','installer'):
     destination=Path('/opt/qspot')/name
@@ -35,12 +37,15 @@ def main():
    setup.write_text('/opt/qspot/SOURCE',setup.command('git','-C',str(source),'rev-parse','HEAD',quiet=True))
    setup.command('systemctl','daemon-reload');setup.command('systemctl','start','qspot-net','qspot-web')
    setup.wait_ready()
-   setup.command('systemctl','stop','pi-hotspot-update-rollback.timer')
+   runtime.finish();committed=True
    print('Update abgeschlossen. Konfiguration und Zugangsdaten wurden beibehalten.')
   except BaseException:
-   setup.command('python3',str(saved/'rollback.py'),str(saved),check=False)
-   setup.command('systemctl','stop','pi-hotspot-update-rollback.timer',check=False)
+   if committed:raise
+   result=setup.command('python3',str(saved/'rollback.py'),str(saved),check=False)
+   if result==0:setup.command('systemctl','stop','pi-hotspot-transaction-rollback.timer',check=False)
+   else:print('Wiederherstellung offen: sudo pi-hotspot recover')
    raise
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+ with runtime.exclusive():main()

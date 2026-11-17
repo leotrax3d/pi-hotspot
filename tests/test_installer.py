@@ -1,4 +1,5 @@
 import configparser
+import os
 import importlib.util
 import tempfile
 import unittest
@@ -23,7 +24,7 @@ class InstallerTests(unittest.TestCase):
    self.assertEqual(profile['802-1x']['password'],'test-only-password')
    self.assertEqual(profile['connection']['interface-name'],'wlan1')
    self.assertNotIn('test-only-password',str(command.call_args_list))
-   self.assertEqual(destination.stat().st_mode&0o777,0o600)
+   if os.name=='posix':self.assertEqual(destination.stat().st_mode&0o777,0o600)
 
  def test_single_radio_profile_pins_uplink_to_24ghz(self):
   with tempfile.TemporaryDirectory() as directory:

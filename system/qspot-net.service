@@ -1,12 +1,13 @@
 [Unit]
 Description=QSpot isolated router control plane
-After=NetworkManager.service network-online.target
-Wants=NetworkManager.service network-online.target
-StartLimitIntervalSec=120
-StartLimitBurst=5
+After=NetworkManager.service pi-hotspot-recover.service systemd-udev-trigger.service
+Wants=NetworkManager.service pi-hotspot-recover.service
+StartLimitIntervalSec=0
+ConditionPathExists=/var/lib/qspot/config.json
 [Service]
+ExecCondition=/usr/bin/python3 /opt/qspot/installer/recovery.py --guard
 ExecStart=/usr/bin/python3 /opt/qspot/qspot/daemon.py
-Restart=on-failure
+Restart=always
 RestartSec=10
 RuntimeDirectory=qspot
 RuntimeDirectoryMode=0755

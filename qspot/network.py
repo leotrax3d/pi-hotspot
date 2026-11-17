@@ -120,12 +120,16 @@ def setup(c):
   text+='wpa=2\nwpa_key_mgmt=WPA-PSK\nrsn_pairwise=CCMP\nwpa_passphrase='+c['ap_password']+'\n'
  private=Path('/run/qspot/hostapd.conf');private.write_text(text);private.chmod(0o600)
  run('systemctl','restart','qspot-hostapd.service')
- vpn(c);dns(c);shaping(c)
+ # DHCP and the local portal must remain available during an uplink/VPN outage.
+ try:vpn(c)
+ except (ValueError,OSError):
+  run('ip','link','del','qspot-wg',check=False)
+ dns(c);shaping(c)
 
 def dns(c):
  hostdns=run('nmcli','-g','IP4.DNS','device','show',WAN,check=False).splitlines()
  hostdns=[x for x in hostdns if re.fullmatch(r'\d+\.\d+\.\d+\.\d+',x)] or ['1.1.1.1']
- servers=[ip+'@qspot-wg' for ip in vpn_dns(c)] if c['vpn']!='off' else hostdns
+ servers=[ip+('@qspot-wg' if Path('/sys/class/net/qspot-wg').exists() else '') for ip in vpn_dns(c)] if c['vpn']!='off' else hostdns
  ip=ipaddress.ip_interface(c['guest']);net=ip.network
  cfg=f'interface={AP}\nbind-dynamic\nexcept-interface=lo\nlisten-address={ip.ip}\nno-resolv\ndomain-needed\nbogus-priv\nlog-async=25\ndhcp-authoritative\ndhcp-range={net.network_address+20},{net.network_address+220},255.255.255.0,1h\ndhcp-option=3,{ip.ip}\ndhcp-option=6,{ip.ip}\ndhcp-leasefile=/run/qspot-dns-guest/leases\ndhcp-option=114,http://{ip.ip}/captive-api\n'
  cfg+=''.join(f'host-record={name},{ip.ip}\n' for name in dict.fromkeys((identity(c)['portal_domain'],c['hostname']+'.local')))

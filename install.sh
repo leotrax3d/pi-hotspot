@@ -11,6 +11,7 @@ fi
 temp_dir=$(mktemp -d /tmp/pi-hotspot-install.XXXXXXXX)
 trap 'rm -rf -- "$temp_dir"' EXIT
 curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 \
+  --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 1800 \
   https://github.com/leotrax3d/pi-hotspot/archive/refs/heads/main.tar.gz -o "$temp_dir/source.tar.gz"
 tar -xzf "$temp_dir/source.tar.gz" -C "$temp_dir"
 python3 "$temp_dir/pi-hotspot-main/installer/setup.py" "$@"

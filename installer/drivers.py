@@ -18,9 +18,9 @@ SWITCH_MESSAGE='555342431234567800000000000010fd0000000000000000000000000000f2'
 
 
 def command(*args,check=True,cwd=None):
- p=subprocess.run(args,text=True,capture_output=True,cwd=cwd)
- if check and p.returncode:raise RuntimeError(f'{args[0]}: {p.stderr.strip()[-1200:]}')
- return p.stdout.strip() if p.returncode==0 else ''
+ from runtime import command as execute
+ if args[0]=='apt-get':args=(args[0],'-o','DPkg::Lock::Timeout=120','-o','Acquire::Retries=3',*args[1:])
+ return execute(*args,check=check,quiet=True,cwd=cwd,timeout=1800)
 
 
 def inventory(root=Path('/sys/bus/usb/devices'),net=Path('/sys/class/net')):
@@ -188,4 +188,5 @@ def prepare(yes,choose):
 if __name__=='__main__':
  if os.geteuid()!=0:raise SystemExit('sudo erforderlich')
  import setup
- prepare(setup.yes,setup.choose)
+ import runtime
+ with runtime.exclusive():prepare(setup.yes,setup.choose)

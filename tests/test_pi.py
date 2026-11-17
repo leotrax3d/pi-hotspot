@@ -74,5 +74,15 @@ class PiNetworkTests(unittest.TestCase):
   self.assertEqual(DEFAULT['profiles']['standard']['bytes'],0)
   self.assertEqual(DEFAULT['profiles']['standard']['seconds'],0)
 
+ def test_adapter_is_found_again_by_mac_after_renumbering(self):
+  import platform_config
+  with tempfile.TemporaryDirectory() as directory:
+   root=Path(directory);net=root/'net';net.mkdir()
+   for name,mac in [('eth0','02:00:00:00:00:01'),('wlan2','02:00:00:00:00:02')]:
+    (net/name).mkdir();(net/name/'address').write_text(mac)
+   config=root/'platform.json';config.write_text(json.dumps({'mode':'dual','uplink':'eth0','radio':'wlan1','ap':'wlan1','radio_mac':'02:00:00:00:00:02'}))
+   with patch.object(platform_config,'PATH',config),patch.object(platform_config,'NET',net):result=platform_config.load()
+   self.assertEqual(result['radio'],'wlan2');self.assertEqual(result['ap'],'wlan2')
+
 
 if __name__=='__main__':unittest.main()
