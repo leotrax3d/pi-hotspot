@@ -120,6 +120,9 @@ def setup(c):
   text+='wpa=2\nwpa_key_mgmt=WPA-PSK\nrsn_pairwise=CCMP\nwpa_passphrase='+c['ap_password']+'\n'
  private=Path('/run/qspot/hostapd.conf');private.write_text(text);private.chmod(0o600)
  run('systemctl','restart','qspot-hostapd.service')
+ start_guest_services(c)
+
+def start_guest_services(c):
  # DHCP and the local portal must remain available during an uplink/VPN outage.
  try:vpn(c)
  except (ValueError,OSError):

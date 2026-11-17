@@ -84,5 +84,11 @@ class PiNetworkTests(unittest.TestCase):
    with patch.object(platform_config,'PATH',config),patch.object(platform_config,'NET',net):result=platform_config.load()
    self.assertEqual(result['radio'],'wlan2');self.assertEqual(result['ap'],'wlan2')
 
+ def test_vpn_failure_does_not_stop_local_guest_services(self):
+  with patch('network.vpn',side_effect=ValueError('No uplink')),patch('network.dns') as dns,patch('network.shaping') as shaping,patch('network.run') as run:
+   network.start_guest_services(DEFAULT)
+   dns.assert_called_once_with(DEFAULT);shaping.assert_called_once_with(DEFAULT)
+   run.assert_called_once_with('ip','link','del','qspot-wg',check=False)
+
 
 if __name__=='__main__':unittest.main()

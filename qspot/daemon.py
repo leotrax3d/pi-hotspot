@@ -234,6 +234,7 @@ def web_activity(hours=24):
 
 def dispatch(d):
  method=d['method']; c=config()
+ if method in ('apply','wifi_connect','vpn_toggle','vpn_import','reboot','restart') and Path('/var/lib/pi-hotspot/transaction.json').exists():raise ValueError('Wartung aktiv')
  if method=='config': return c
  if method=='matrix_test':
   mode=int(d['mode'])

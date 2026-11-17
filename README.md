@@ -108,14 +108,23 @@ vergleichen. Admin-Passwort und Hotspot-Passwort sind getrennt.
 ```bash
 sudo pi-hotspot status       # Dienste
 sudo pi-hotspot logs         # Diagnose
+sudo pi-hotspot doctor       # Zustand ohne Zugangsdaten
+sudo pi-hotspot recover      # abgebrochene Installation wiederherstellen
 sudo pi-hotspot drivers      # USB-WLAN-Treiber erkennen/einrichten
 sudo pi-hotspot configure    # Assistent erneut vollständig durchlaufen
 sudo pi-hotspot backup       # lokale Root-Sicherung
 sudo pi-hotspot update       # manuelles Update von main mit Sicherung
 ```
 
-Neu-Konfiguration fragt die Einstellungen vollständig neu ab. Vorhandene
-Voucher-/Sitzungsdaten bleiben bestehen; das Admin-Passwort wird neu gesetzt.
+Neu-Konfiguration übernimmt bestehende Einstellungen als Vorgaben. Profile, Portaltexte, Voucher- und Sitzungsdaten bleiben erhalten. Ein leeres Admin-Passwort behält den bisherigen Zugang einschließlich 2FA bei. Ein ausdrücklich neu gesetztes Passwort setzt die bisherige 2FA-Konfiguration zurück.
+
+## Automatischer Start
+
+Nach erfolgreicher Installation sind Routersteuerung, Weboberfläche und Namensauflösung dauerhaft über systemd aktiviert. Die Routersteuerung erzeugt beim Start die Laufzeitkonfiguration und startet Hotspot und DHCP/DNS. Eine Anmeldung am Pi oder ein manueller Startbefehl ist nicht erforderlich.
+
+Fehlgeschlagene Dienste werden erneut gestartet, auch wenn ein USB-Adapter erst spät erscheint. Gespeicherte Adapter-MACs helfen, geänderte WLAN-Interface-Nummern wieder zuzuordnen. NetworkManager verbindet den gespeicherten Uplink automatisch. Bei getrenntem Uplink und Hotspot kann das lokale Portal auch ohne Internet starten. VPN-Verbindungen werden mit begrenzter Wiederholungsrate erneut aufgebaut; der Kill Switch bleibt aktiv. Im experimentellen Ein-Adapter-Modus ist der Hotspot weiterhin vom verbundenen Uplink-Kanal abhängig.
+
+Ein echter Kaltstart-/Stromausfalltest auf jedem Pi-Modell steht weiterhin aus.
 
 ## VPN und Privatsphäre
 
@@ -149,13 +158,19 @@ liegen im Arbeitsspeicher und werden bei Dienstneustart verworfen.
 Vor der Netzwerkeinrichtung und Updates entsteht eine lokale Sicherung unter
 `/var/backups/pi-hotspot/<Zeitstempel>/`. Sie enthält gegebenenfalls Passwörter,
 VPN-Schlüssel und Nutzerdaten und ist ausschließlich für Root lesbar.
-Ein separater systemd-Timer stellt die Sicherung bei abgebrochener Installation
-nach 15 Minuten bzw. bei abgebrochenem Update nach 5 Minuten wieder her.
-Nach erfolgreichen Dienstprüfungen wird dieser Timer gestoppt.
+Vor Paket- und Netzwerkänderungen wird eine geprüfte Sicherung mit SHA-256-Prüfsumme erstellt; SQLite wird über seine Backup-API konsistent gesichert. Der Installer sperrt parallele Installationen und Updates.
+
+Ein separater systemd-Timer stellt bei einer abgebrochenen Installation nach 45 Minuten, bei einem abgebrochenen Update nach 15 Minuten wieder her. Ein dauerhaft gespeicherter Transaktionsmarker und ein eigener Boot-Dienst decken einen Neustart oder Stromausfall während dieser Phase ab. Vor dem Wiederherstellen wird das Archiv geprüft und in ein temporäres Verzeichnis entpackt; beschädigte Archive oder unsichere Pfade führen vor dem Anhalten der Dienste zum Abbruch. Nach erfolgreichen Dienst-, Autostart- und HTTPS-Prüfungen werden Timer und Marker entfernt.
+
+Die Treibervorbereitung bleibt eine getrennte, vorab bestätigte Phase. Installierte Pakete, Firmware und Kernelmodule werden durch die Anwendungssicherung nicht rückgängig gemacht.
 
 Bei einem Fehler wird sofort zurückgerollt. Eine Sicherung manuell herstellen:
 
 ```bash
+sudo pi-hotspot recover
+# Falls der CLI-Befehl nach einem Abbruch noch nicht installiert ist:
+sudo python3 /var/lib/pi-hotspot/recovery.py --manual
+# Alternativ eine bestimmte Sicherung:
 sudo python3 /var/backups/pi-hotspot/<Zeitstempel>/rollback.py /var/backups/pi-hotspot/<Zeitstempel>
 ```
 
@@ -197,3 +212,5 @@ Paketmetadaten in `frontend/package-lock.json`. Es werden keine persönlichen
 Zugangsdaten, Mullvad-Profile oder Daten vom Arduino veröffentlicht.
 
 USB-Treiberquelle: [Radxa AIC8800, gepinnter Stand](https://github.com/radxa-pkg/aic8800/tree/5562c254b0231be34588dc608ec28c4f1d613285). [UGREEN Linux-Treiber für CM762/CM763](https://www.lulian.cn/download/462.html). [AIC-Moduswechsel auf Raspberry Pi](https://github.com/olamellberg/AIC8800D80/tree/98ccdbf60385f6bdb8071588ec95164aa606ca14). Treiber und Firmware bleiben unter ihren jeweiligen Upstream-Lizenzen; der Installer lädt sie getrennt herunter.
+
+Startverhalten: [systemd.service](https://freedesktop.org/software/systemd/man/latest/systemd.service.html) und [Startbegrenzung](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit).

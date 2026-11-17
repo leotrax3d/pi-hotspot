@@ -17,6 +17,7 @@ import runtime
 def main():
  parser=argparse.ArgumentParser();parser.add_argument('--backup-only',action='store_true');args=parser.parse_args()
  if os.geteuid()!=0:raise ValueError('Bitte mit sudo starten')
+ setup.ensure_idle()
  if args.backup_only:print(setup.backup());return
  if not setup.yes('Aktuelle main-Version nach Sicherung installieren?',False):return
  with tempfile.TemporaryDirectory(prefix='pi-hotspot-update-') as temp:

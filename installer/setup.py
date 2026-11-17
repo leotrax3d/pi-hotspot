@@ -86,6 +86,11 @@ def choose(label,items,default=0):
   if value.isdigit() and 1<=int(value)<=len(items):return items[int(value)-1]
 
 
+def ensure_idle():
+ if (runtime.STATE/'transaction.json').exists():raise ValueError('Offene Wiederherstellung: sudo python3 /var/lib/pi-hotspot/recovery.py --manual')
+ if any((Path('/var/lib/qspot')/name).exists() for name in ('pending.json','wifi-pending.json')):raise ValueError('Netzwerkänderung zuerst bestätigen oder zurückrollen')
+
+
 def preflight(allow_installed=False):
  if platform.system()!='Linux' or platform.machine() not in ('aarch64','arm64'):
   raise ValueError('Erforderlich: Raspberry Pi OS Lite 64 Bit (aarch64)')
@@ -104,8 +109,8 @@ def preflight(allow_installed=False):
   raise ValueError('Bereits installiert. Updates: sudo pi-hotspot update; neu konfigurieren: sudo pi-hotspot configure')
  if not hasattr(tarfile,'data_filter'):raise ValueError('Python-Sicherheitsupdates fehlen (tarfile.data_filter)')
  if shutil.disk_usage('/').free<1024**3:raise ValueError('Mindestens 1 GB freier Speicher erforderlich')
- if os.statvfs('/').f_flag&os.ST_RDONLY:raise ValueError('Root-Dateisystem ist schreibgesch?tzt')
- if (runtime.STATE/'transaction.json').exists():raise ValueError('Offene Wiederherstellung: sudo pi-hotspot recover')
+ if os.statvfs('/').f_flag&os.ST_RDONLY:raise ValueError('Root-Dateisystem ist schreibgeschützt')
+ ensure_idle()
  return model
 
 
@@ -266,6 +271,7 @@ def configure_uplink(wifi,p):
 
 def install(c,p,wifi,vpn,auth):
  import grp
+ ensure_idle()
  if not (ROOT/'qspot/static/app/index.html').is_file():raise ValueError('Weboberfläche fehlt im Installationspaket')
  saved=backup();print('Sicherung:',saved)
  runtime.begin(saved,'install',ROOT)
@@ -316,7 +322,7 @@ def install(c,p,wifi,vpn,auth):
   hosts=re.sub(r'^127\.0\.1\.1\s+.*$', '127.0.1.1\t'+c['hostname'],hosts,flags=re.M)
   if not re.search(r'^127\.0\.1\.1\s',hosts,re.M):hosts+='\n127.0.1.1\t'+c['hostname']+'\n'
   write_text('/etc/hosts',hosts)
-  runtime.stage('Autostart und Dienste pr?fen')
+  runtime.stage('Autostart und Dienste prüfen')
   command('systemctl','daemon-reload');command('systemctl','enable','qspot-net','qspot-web','avahi-daemon')
   command('systemctl','restart','avahi-daemon');command('systemctl','start','qspot-net','qspot-web')
   wait_ready()
