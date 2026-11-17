@@ -36,14 +36,20 @@ def dataplane(c,state):
   def query(name):
    code="import socket,struct,json;name="+repr(name)+";labels=b''.join(bytes([len(x)])+x.encode() for x in name.split('.'))+b'\\0';packet=struct.pack('!HHHHHH',43210,256,1,0,0,0)+labels+struct.pack('!HH',1,1);s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(3);s.sendto(packet,('10.77.0.1',53));data=s.recv(4096);print(json.dumps({'rcode':data[3]&15,'answers':int.from_bytes(data[6:8],'big'),'ip':socket.inet_ntoa(data[-4:])}))"
    return json.loads(run('ip','netns','exec',namespace,'python3','-c',code))
+  def expect_address(name,address):
+   # Gravity/client changes are committed by the API before FTL's async reload.
+   for _ in range(20):
+    reply=query(name)
+    if reply['ip']==address:return reply
+    time.sleep(.25)
+   raise AssertionError({'expected':address,'actual':reply})
   pihole.request('/domains/deny/exact',{'domain':c['portal_domain'],'enabled':True,'groups':[0],'comment':'integration-test'})
   pihole.LAST_HEALTH=0;pihole.maintain(c)
   assert query(c['portal_domain'])['ip']=='10.77.0.1'
   # The MAC-based group bypass applies to this real Ethernet peer.
   assert query('blocked.test')['ip']=='192.0.2.5'
   pihole.action(c,{'operation':'device','mac':'02:00:00:00:00:01','enabled':True})
-  time.sleep(.5)
-  blocked=query('blocked.test');assert blocked['ip']=='0.0.0.0' or blocked['rcode']==3,blocked
+  expect_address('blocked.test','0.0.0.0')
   for _ in range(10):
    query('blocked.test')
    seen=pihole.request('/queries?length=50')['queries']
@@ -76,9 +82,9 @@ def dataplane(c,state):
     if pihole.ROUTED==pihole.PORT:break
    except (ValueError,OSError):pass
    time.sleep(1)
-  assert query('blocked.test')['ip']=='0.0.0.0'
+  expect_address('blocked.test','0.0.0.0')
   pihole.action(c,{'operation':'device','mac':'02:00:00:00:00:01','enabled':False})
-  assert query('blocked.test')['ip']=='192.0.2.5'
+  expect_address('blocked.test','192.0.2.5')
   assert pihole.view(c)['events']==[]
   assert pihole.request('/queries?length=50')['queries']==[]
   print('Linux namespaces: real MAC selection, source identity, DNS redirect, filtered outage and restart recovery: OK')
