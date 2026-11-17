@@ -20,8 +20,10 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'qspot'))
+sys.path.insert(0,str(ROOT/'installer'))
 from common import DEFAULT, atomic, password_hash, validate, rpc
-from platform_config import load as load_platform
+from branding import certificate_names, identity
+from drivers import prepare as prepare_drivers
 
 PACKAGES=['iw','hostapd','dnsmasq-base','nftables','wireguard-tools','iproute2',
           'conntrack','python3-flask','python3-cryptography','openssl',
@@ -29,7 +31,7 @@ PACKAGES=['iw','hostapd','dnsmasq-base','nftables','wireguard-tools','iproute2',
 UNITS=['qspot-net.service','qspot-web.service','qspot-hostapd.service','qspot-dns@.service']
 TARGETS=['/opt/qspot','/etc/qspot','/var/lib/qspot','/var/lib/qspot-web',
          '/etc/NetworkManager/system-connections','/etc/NetworkManager/conf.d/90-pi-hotspot.conf',
-         '/etc/sysctl.d/90-pi-hotspot.conf','/etc/hostname','/etc/hosts','/usr/local/bin/pi-hotspot']+['/etc/systemd/system/'+u for u in UNITS]
+         '/etc/sysctl.d/90-pi-hotspot.conf','/etc/avahi/hosts','/etc/hostname','/etc/hosts','/usr/local/bin/pi-hotspot']+['/etc/systemd/system/'+u for u in UNITS]
 
 
 def command(*args,check=True,quiet=False):
@@ -95,7 +97,9 @@ def collect():
   if 'valid interface combinations' not in caps or 'managed' not in caps:
    raise ValueError('Treiber meldet keine gleichzeitigen Interface-Kombinationen')
  c['hostname']=ask('Lokaler Hostname','pi-hotspot')
- c['ssid']=ask('Hotspot-Name','SchülerWLAN')
+ c['brand_name']=ask('Anzeigename','SchülerWLAN')
+ c['portal_domain']=ask('Portal-Domain',c['hostname']+'.local')
+ c['ssid']=ask('Hotspot-Name',c['brand_name'])
  c['channel']=int(ask('Hotspot-Kanal 1–11 (Deutschland; Single-Modus folgt Uplink)','6'))
  c['guest']=ask('Hotspot-IP mit /24','10.77.0.1/24')
  access=choose('Hotspot-Zugang',['WLAN-Passwort + Portal','Offenes WLAN + Portal','Offenes WLAN + Voucher','WLAN-Passwort + Voucher'])
@@ -104,7 +108,7 @@ def collect():
   if not c['ap_password']:raise ValueError('Hotspot-Passwort fehlt')
  c['portal_mode']='code' if 'Voucher' in access else 'both' if yes('Zusätzlich Voucher im Portal anbieten?',False) else 'accept'
  c['terms']='Nutze den Zugang verantwortungsbewusst. '+('Die WLAN-Funkstrecke ist unverschlüsselt; nutze HTTPS.' if not c['ap_password'] else 'Die WLAN-Funkstrecke ist mit WPA2 geschützt.')
- c['title']=ask('Titel im Portal','Willkommen im SchülerWLAN')
+ c['title']=ask('Titel im Portal',c['brand_name'])
  for key,label in [('chat','Chat mit Wort- und Linkfilter'),('singleplayer','Singleplayer-Games'),('multiplayer','Multiplayer-Games mit Lobbys'),('vpn','Mullvad/WireGuard-Unterstützung')]:
   c['features'][key]=yes(label+' installieren?')
  c['dns_logging']=yes('DNS-Domain-Logs aktivieren? (Keine vollständigen HTTPS-Adressen)',False)
@@ -219,7 +223,8 @@ def install(c,p,wifi,vpn,auth):
   shutil.chown('/var/lib/qspot-web/auth.json',user='qspot',group='qspot')
   command('openssl','req','-x509','-newkey','rsa:3072','-sha256','-nodes','-days','365',
           '-keyout','/etc/qspot/tls/key.pem','-out','/etc/qspot/tls/cert.pem','-subj','/CN='+c['hostname']+'.local',
-          '-addext','subjectAltName=DNS:'+c['hostname']+'.local,DNS:pi-hotspot.local,DNS:pi-hotspot.lan,DNS:schuelerwlan.lan,IP:'+str(ipaddress.ip_interface(c['guest']).ip))
+          '-addext','subjectAltName='+certificate_names(c))
+  atomic('/etc/qspot/tls/identity.json',{'names':certificate_names(c)})
   for name in ('key.pem','cert.pem'):
    path=Path('/etc/qspot/tls')/name;os.chown(path,0,qgid);path.chmod(0o640)
   for unit in UNITS:shutil.copy2(ROOT/'system'/unit,Path('/etc/systemd/system')/unit)
@@ -238,7 +243,7 @@ def install(c,p,wifi,vpn,auth):
   command('systemctl','restart','avahi-daemon');command('systemctl','start','qspot-net','qspot-web')
   wait_ready()
   command('systemctl','stop','pi-hotspot-install-rollback.timer')
-  print('\nBereit: https://'+c['hostname']+'.local/admin')
+  print('\nBereit: https://'+c['portal_domain']+'/admin')
   print('Hotspot: '+c['ssid']+' | IP: '+str(ipaddress.ip_interface(c['guest']).ip))
   print('Lokales selbstsigniertes Zertifikat: Fingerabdruck am Pi prüfen und im Browser vertrauen.')
   command('openssl','x509','-in','/etc/qspot/tls/cert.pem','-noout','-fingerprint','-sha256')
@@ -264,12 +269,13 @@ def main():
  else:model=preflight()
  print('pi-hotspot | '+model)
  if args.check:return
+ prepare_drivers(yes,choose)
  c,p,wifi,vpn,auth=collect()
  print('\nZusammenfassung (keine Passwörter):')
  print(json.dumps({'plattform':p,'hotspot':c['ssid'],'zugang':c['portal_mode'],
                    'funktionen':c['features'],'dns_logs':c['dns_logging'],
                    'aufbewahrung_stunden':c['dns_retention_hours'],'vpn_start':c['vpn'],
-                   'verwaltung':c['hostname']+'.local','datenvolumen':'unbegrenzt'},ensure_ascii=False,indent=2))
+                   'verwaltung':c['portal_domain'],'name':c['brand_name'],'datenvolumen':'unbegrenzt'},ensure_ascii=False,indent=2))
  print('Richtet Pakete, NetworkManager, Hotspot, DHCP/DNS, Firewall, Dienste und lokalen Admin ein. Netzwerk/SSH kann kurz unterbrochen werden.')
  if not yes('Diese Konfiguration nach Sicherung anwenden?',False):print('Abgebrochen.');return
  install(c,p,wifi,vpn,auth)

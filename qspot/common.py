@@ -4,6 +4,7 @@ from pathlib import Path
 STATE = Path(os.environ.get('QSPOT_STATE', '/var/lib/qspot'))
 DEFAULT = {
  'hostname':'pi-hotspot', 'ssid':'SchülerWLAN', 'channel':6, 'country':'DE',
+ 'brand_name':'SchülerWLAN', 'portal_domain':'pi-hotspot.local',
  'guest':'10.77.0.1/24', 'usb':'10.78.0.1/24', 'portal_mode':'both',
  'title':'Willkommen im SchülerWLAN', 'description':'',
  'accept_text':'Ich akzeptiere die Nutzungsbedingungen.', 'terms':'Offenes WLAN: Die Funkstrecke ist unverschlüsselt. Nutze HTTPS.',
@@ -29,6 +30,11 @@ def run(*args, input=None, timeout=20, check=True):
  return p.stdout.strip()
 
 def validate(c, routes=()):
+ from branding import domain
+ c['portal_domain']=domain(c.get('portal_domain',c['hostname']+'.local'))
+ brand=c.get('brand_name','SchülerWLAN')
+ if not isinstance(brand,str) or not 1<=len(brand)<=48 or any(ord(x)<32 or ord(x)==127 for x in brand):raise ValueError('Anzeigename: 1–48 Zeichen')
+ c['brand_name']=brand
  if c.get('ap_password') and not re.fullmatch(r'[\x20-\x7e]{8,63}',c['ap_password']):raise ValueError('Hotspot-Passwort: 8–63 druckbare ASCII-Zeichen')
  if type(c.get('dns_logging',False)) is not bool:raise ValueError('DNS-Logging muss wahr oder falsch sein')
  if type(c.get('dns_retention_hours',24)) is not int or not 1<=c.get('dns_retention_hours',24)<=168:raise ValueError('DNS-Aufbewahrung: 1–168 Stunden')

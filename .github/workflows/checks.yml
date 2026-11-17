@@ -28,3 +28,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+  usb-driver:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends linux-headers-generic build-essential
+      - run: python3 installer/check_driver_source.py /tmp/aic-review /tmp/aic-build
+      - shell: bash
+        run: |
+          headers=$(find /usr/src -maxdepth 1 -type d -name 'linux-headers-*-generic' | sort -V | tail -1)
+          test -n "$headers"
+          make -j2 -C "$headers" M=/tmp/aic-build/aic_load_fw CONFIG_PLATFORM_UBUNTU=y modules
+          make -j2 -C "$headers" M=/tmp/aic-build/aic8800_fdrv CONFIG_PLATFORM_UBUNTU=y modules

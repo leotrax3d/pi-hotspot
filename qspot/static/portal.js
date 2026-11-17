@@ -13,7 +13,7 @@ fetch('/api/portal').then(r=>{if(!r.ok)throw Error();return r.json()}).then(c=>{
  for(const k of ['title','description','terms'])$('#'+k).textContent=c[k];
  $('#accepttext').textContent=c.accept_text;showCode(c.portal_mode==='code');$('#code-choice').hidden=c.portal_mode!=='both';
  $('#code-choice').onclick=()=>{if(!codeMode&&location.protocol!=='https:'){location.assign('https://'+location.host+'/?code=1');return}showCode(!codeMode)};
- if(c.session?.active){const s=c.session;$('#status').hidden=false;$('#status').textContent=`Verbunden\n${s.remaining_seconds===null?'Zeit unbegrenzt':Math.ceil(s.remaining_seconds/60)+' Minuten verbleibend'}\n${(s.used/1024**2).toFixed(1)} MB genutzt`;$('#rules').hidden=true;$('#access-form').hidden=true;$('.flow-track').hidden=true;$('#title').textContent='Verbunden';$('#connection-scene').hidden=false;$('.connection-art').hidden=true;$('#connection-title').textContent='Was möchtest du machen?';$('#connection-detail').textContent='Chatte mit anderen Geräten oder starte ein Spiel.';$('#community-actions').hidden=false;}
+ if(c.session?.active){const s=c.session;$('#status').hidden=false;$('#status').textContent=`Verbunden\n${s.remaining_seconds===null?'Zeit unbegrenzt':Math.ceil(s.remaining_seconds/60)+' Minuten verbleibend'}\n${(s.used/1024**2).toFixed(1)} MB genutzt`;$('#rules').hidden=true;$('#access-form').hidden=true;$('.flow-track').hidden=true;$('#title').textContent='Verbunden';$('#connection-scene').hidden=false;$('.connection-art').hidden=true;$('#connection-title').textContent='Verbunden';$('#connection-detail').textContent='';$('#community-actions').hidden=false;}
  else{$('#access-form').hidden=true;$('#rules-next').hidden=false;$('#rules-next').onclick=()=>{$('#rules-next').disabled=true;access()};if(c.session)$('#error').textContent=c.session.reason;if(new URLSearchParams(location.search).has('code')&&c.portal_mode!=='accept'){showCode(true);access()}}
 }).catch(()=>$('#error').textContent='Portal derzeit nicht erreichbar. Bitte die Seite neu laden.');
 $('#accept').onclick=()=>{$('input[name=code]').value=''};
@@ -32,7 +32,7 @@ $('#access-form').addEventListener('submit',async e=>{
  await sleep(Math.max(0,(reduce?0:2500)-(performance.now()-start)));
  $('.connection-spinner').hidden=true;
  if(result.error){$('#connection-title').textContent='Noch nicht verbunden';$('#connection-detail').textContent=result.error.name==='TimeoutError'?'Zeitüberschreitung. Bitte erneut versuchen.':result.error.message;$('#connection-back').hidden=false;$('#connection-back').focus()}
- else{$('.connection-check').hidden=false;enter($('.connection-check'));$('#connection-title').textContent='Verbunden';$('#connection-detail').textContent='Du kannst jetzt surfen, chatten oder spielen.';$('#community-actions').hidden=false;$('footer').hidden=false;enter($('#connection-title'));enter($('#community-actions'));}
+ else{$('.connection-check').hidden=false;enter($('.connection-check'));$('#connection-title').textContent='Verbunden';$('#connection-detail').textContent='';$('#community-actions').hidden=false;$('footer').hidden=false;enter($('#connection-title'));enter($('#community-actions'));}
  busy=false;
 });
 $('#connection-back').onclick=()=>{location.assign('/')};

@@ -1,3 +1,5 @@
+import {useBranding,setBranding} from './branding'
+import './console.css'
 import {
   Suspense,
   lazy,
@@ -128,6 +130,7 @@ function Navigation({
   features: Record<string,boolean>;
 }) {
   const { setOpenMobile } = useSidebar();
+  const brand=useBranding();
   return (
     <Sidebar className="qspot-sidebar">
       <SidebarHeader>
@@ -178,7 +181,7 @@ function Navigation({
       <SidebarFooter>
         <Separator />
         <div className="sidebar-user">
-          <div className="admin-monogram">Q</div>
+          <div className="admin-monogram">{brand.brand_name[0]}</div>
           <div>
             <strong>Administrator</strong>
             <span>Lokaler Zugang</span>
@@ -197,6 +200,8 @@ function Navigation({
   );
 }
 function App() {
+  const brand=useBranding();
+  useEffect(()=>{void api<Config>('/api/branding').then(setBranding).catch(()=>{})},[]);
   const [auth, setAuth] = useState<Auth | null>(null),
     [config, setConfig] = useState<Config | null>(null),
     [status, setStatus] = useState<Status | null>(null),
@@ -255,6 +260,7 @@ function App() {
       );
     }
   }, []);
+  useEffect(()=>{if(config)setBranding(config)},[config]);
   const refreshConfig = useCallback(async () => {
     setConfig(await api<Config>("/api/admin/config"));
   }, []);
@@ -356,7 +362,7 @@ function App() {
       ) : (
         <>
           <Spinner />
-          <p>Verbindung zu deinem SchülerWLAN …</p>
+
         </>
       )}
     </div>
@@ -378,7 +384,7 @@ function App() {
         <header className="app-header">
           <div className="flex items-center gap-3">
             <SidebarTrigger className="md:hidden" />
-            <span className="header-parent">SchülerWLAN</span>
+            <span className="header-parent">{brand.brand_name}</span>
             <ChevronRight className="size-3 text-muted-foreground" />
             <span>{current.label}</span>
           </div>
@@ -411,11 +417,9 @@ function App() {
           {status?.pending && (
             <Alert className="network-confirmation mb-6">
               <Settings2 />
-              <AlertTitle>Erreichbarkeit bestätigen</AlertTitle>
+              <AlertTitle>120 s</AlertTitle>
               <AlertDescription>
-                <span>
-                  Die Änderung wird ohne Bestätigung automatisch zurückgerollt.
-                </span>
+                <a href={"https://"+(config?.portal_domain||brand.portal_domain)+"/admin"}>{config?.portal_domain||brand.portal_domain}</a>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -530,8 +534,8 @@ function App() {
           )}
           <footer className="app-footer">
             <Logo compact />
-            <span>SchülerWLAN</span>
-            <span>UNO Q</span>
+            <span>{brand.brand_name}</span>
+            <span>Raspberry Pi</span>
           </footer>
         </main>
       </SidebarInset>
