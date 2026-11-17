@@ -13,20 +13,24 @@ type View={installed:boolean;available:boolean;blocking?:string;timer?:number;bl
 export function DnsProtection({status}:{status:Status}){
  const [data,setData]=useState<View>();const [busy,setBusy]=useState(false)
  const [error,setError]=useState('');const [domain,setDomain]=useState('');const [search,setSearch]=useState('')
- const inFlight=useRef(false);const mounted=useRef(true)
- async function refresh(){
-  if(inFlight.current)return;inFlight.current=true
-  try{const result=await action<View>('dns_status');if(mounted.current){setData(result);setError('')}}
-  catch(e){if(mounted.current)setError((e as Error).message)}finally{inFlight.current=false}
+ const pending=useRef<Promise<void>|null>(null);const changing=useRef(false);const mounted=useRef(true)
+ async function refresh(force=false){
+  if(changing.current&&!force)return
+  if(pending.current)return pending.current
+  pending.current=(async()=>{
+   try{const result=await action<View>('dns_status');if(mounted.current){setData(result);setError('')}}
+   catch(e){if(mounted.current)setError((e as Error).message)}finally{pending.current=null}
+  })()
+  return pending.current
  }
  useEffect(()=>{mounted.current=true;let timer:ReturnType<typeof setTimeout>
   const poll=async()=>{await refresh();if(mounted.current)timer=setTimeout(poll,5000)};void poll()
   return()=>{mounted.current=false;clearTimeout(timer)}
  },[])
  async function run(operation:string,extra:Record<string,unknown>={}){
-  if(busy||inFlight.current)return;setBusy(true)
-  try{await action('dns_action',{operation,...extra});await refresh();toast.success('Gespeichert')}
-  catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
+  if(changing.current)return;changing.current=true;setBusy(true)
+  try{await pending.current;await action('dns_action',{operation,...extra});await refresh(true);toast.success('Gespeichert')}
+  catch(e){toast.error((e as Error).message)}finally{changing.current=false;setBusy(false)}
  }
  const unavailable=busy||!data?.available
  const devices=status.sessions.filter((x,i,a)=>x.active&&a.findIndex(y=>y.mac===x.mac)===i)

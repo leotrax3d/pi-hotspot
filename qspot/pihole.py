@@ -13,7 +13,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, build_opener, ProxyHandler
 from common import STATE, atomic
 
-IMAGE='pihole/pihole:2026.11.0'
+IMAGE='docker.io/pihole/pihole:2026.11.0'
 PORT=5354
 API='http://127.0.0.1:8081/api'
 LOCK=threading.RLock()
@@ -23,6 +23,7 @@ UNTIL=0
 LAST_HEALTH=0
 ROUTED=None
 PURGED=0
+LAST_SAMPLE=0
 RECONCILED=False
 OPENER=build_opener(ProxyHandler({}))
 
@@ -166,7 +167,7 @@ def configure(c,upstreams):
 
 def maintain(c):
  """Only local DNS remains during FTL failure. No public fallback resolver."""
- global LAST_HEALTH,ROUTED,PURGED,RECONCILED,SID
+ global LAST_HEALTH,ROUTED,PURGED,RECONCILED,SID,LAST_SAMPLE
  if not enabled(c):return
  now=time.monotonic()
  if now-LAST_HEALTH<5:return
@@ -175,7 +176,8 @@ def maintain(c):
  alive=False
  try:
   current=request('/dns/blocking')
-  daily_sample()
+  if now-LAST_SAMPLE>=30:
+   daily_sample();LAST_SAMPLE=now
   control=STATE/'pihole-control.json'
   desired=json.loads(control.read_text()) if control.exists() else {'blocking':True,'pause_until':0}
   remaining=max(0,desired['pause_until']-time.time())

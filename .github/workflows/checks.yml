@@ -28,6 +28,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: node package-static.mjs
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/pi-smoke.mjs
   usb-driver:
     runs-on: ubuntu-24.04
     steps:
@@ -44,4 +47,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 installer/check_pihole.py
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends podman nftables dnsmasq-base conntrack
+      - run: sudo env PI_HOTSPOT_CONTAINER_ENGINE=podman python3 installer/check_pihole.py

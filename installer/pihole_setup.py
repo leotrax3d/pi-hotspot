@@ -7,7 +7,7 @@ import runtime
 def prepare(c):
  if not c.get('features',{}).get('pihole'):return
  from pihole import IMAGE
- # Docker's host network avoids NAT of client identity and new forwarding rules.
+ # Podman host networking preserves client identity without a bridge or daemon.
  runtime.apt('install','-y','--no-install-recommends','podman')
  runtime.command('podman','pull',IMAGE,timeout=600,quiet=True)
  running=runtime.command('podman','inspect','-f','{{.State.Running}}','qspot-pihole',check=False,quiet=True)=='true'
