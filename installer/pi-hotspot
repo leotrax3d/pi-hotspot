@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ ${EUID} -ne 0 ]]; then echo 'Bitte mit sudo starten.' >&2; exit 1; fi
+case "${1:-help}" in
+  status)
+    systemctl --no-pager status qspot-net qspot-web qspot-hostapd qspot-dns@guest
+    ;;
+  logs)
+    journalctl -u qspot-net -u qspot-web -u qspot-hostapd -n 100 --no-pager
+    ;;
+  configure)
+    exec python3 /opt/qspot/installer/setup.py --reconfigure
+    ;;
+  backup)
+    exec python3 /opt/qspot/installer/update.py --backup-only
+    ;;
+  update)
+    exec python3 /opt/qspot/installer/update.py
+    ;;
+  *) echo 'pi-hotspot {status|logs|configure|backup|update}' ;;
+esac

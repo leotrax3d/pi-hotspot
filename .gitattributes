@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+installer/pi-hotspot text eol=lf
+*.gz binary
+*.woff2 binary
+qspot/static/app/** whitespace=-blank-at-eol,-blank-at-eof
