@@ -51,7 +51,7 @@ class PiHoleTests(unittest.TestCase):
    with self.assertRaises(ValueError):pihole.action(self.c,{'operation':'domain','domain':name,'mode':'deny'})
   with patch('pihole.request',return_value={'domains':[]}) as api:
    pihole.action(self.c,{'operation':'domain','domain':'Example.org','mode':'deny'})
-  self.assertEqual(api.call_args.args[0],'/domains/deny/exact')
+  self.assertIn(unittest.mock.call('/domains/deny/exact',{'domain':'example.org','enabled':True,'groups':[0],'comment':''}),api.call_args_list)
 
  def test_outage_routes_only_to_local_dns_then_recovers(self):
   with patch('pihole.request',side_effect=ValueError('unavailable')),patch('common.run') as run:

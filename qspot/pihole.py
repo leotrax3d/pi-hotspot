@@ -2,6 +2,7 @@
 import datetime
 import ipaddress
 import json
+import os
 import re
 import threading
 import time
@@ -116,10 +117,10 @@ def action(c,d):
    if name in (identity(c)['portal_domain'],c['hostname']+'.local'):raise ValueError('Lokale Domain geschützt')
    other='deny' if mode=='allow' else 'allow'
    # Replacing the opposite rule prevents an allow rule silently overriding deny.
-   existing=request('/domains/'+other+'/exact/'+quote(name,safe='')).get('domains',[])
-   if existing:request('/domains/'+other+'/exact/'+quote(name,safe=''),method='DELETE')
    current=request('/domains/'+mode+'/exact/'+quote(name,safe='')).get('domains',[])
    if not current:request('/domains/'+mode+'/exact',{'domain':name,'enabled':True,'groups':[0],'comment':''})
+   existing=request('/domains/'+other+'/exact/'+quote(name,safe='')).get('domains',[])
+   if existing:request('/domains/'+other+'/exact/'+quote(name,safe=''),method='DELETE')
   elif kind=='device':
    mac=str(d.get('mac','')).lower()
    if not re.fullmatch(r'(?:[0-9a-f]{2}:){5}[0-9a-f]{2}',mac) or type(d.get('enabled')) is not bool:raise ValueError('Ungültiges Gerät')
@@ -152,16 +153,24 @@ def configure(c,upstreams):
  from common import run
  path=STATE/'pihole.env'
  if not enabled(c):
-  if path.exists():run('systemctl','stop','qspot-pihole',check=False)
+  if path.exists():run('systemctl','disable','--now','qspot-pihole',check=False)
   return
  values=environment(c,upstreams)
  del values['FTLCONF_dns_blocking_active']
  text=''.join(k+'='+v+'\n' for k,v in values.items())
  changed=not path.exists() or path.read_text()!=text
  if changed:
-  path.write_text(text);path.chmod(0o600)
+  temporary=path.with_suffix('.new')
+  with temporary.open('w') as file:
+   os.chmod(temporary,0o600);file.write(text);file.flush();os.fsync(file.fileno())
+  os.replace(temporary,path)
+  if hasattr(os,'O_DIRECTORY'):
+   fd=os.open(path.parent,os.O_DIRECTORY)
+   try:os.fsync(fd)
+   finally:os.close(fd)
   global SID,RECONCILED,PURGED
   SID='';RECONCILED=False;PURGED=0;invalidate()
+  run('systemctl','enable','qspot-pihole',check=False)
   run('systemctl','restart','qspot-pihole',check=False)
  else:run('systemctl','start','qspot-pihole',check=False)
 

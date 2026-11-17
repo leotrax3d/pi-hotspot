@@ -43,7 +43,10 @@ def dataplane(c,state):
   pihole.action(c,{'operation':'device','mac':'02:00:00:00:00:01','enabled':True})
   time.sleep(.5)
   blocked=query('blocked.test');assert blocked['ip']=='0.0.0.0' or blocked['rcode']==3,blocked
-  seen=pihole.request('/queries?length=50')['queries']
+  for _ in range(10):
+   seen=pihole.request('/queries?length=50')['queries']
+   if any(x.get('client',{}).get('ip')=='10.77.0.2' for x in seen):break
+   time.sleep(.3)
   assert any(x.get('client',{}).get('ip')=='10.77.0.2' for x in seen),'Client address was lost'
   run('systemctl','stop','qspot-pihole-test')
   pihole.LAST_HEALTH=0;pihole.maintain(c)
