@@ -17,7 +17,7 @@ class PiHoleTests(unittest.TestCase):
   self.state=Path(self.temp.name);self.patch=patch.object(pihole,'STATE',self.state);self.patch.start();self.addCleanup(self.patch.stop)
   (self.state/'pihole-password').write_text('private-test-password')
   self.c=copy.deepcopy(DEFAULT);self.c['features']['pihole']=True
-  pihole.SID='';pihole.RECONCILED=False;pihole.PURGED=0;pihole.invalidate();pihole.reset_route()
+  pihole.SID='';pihole.RECONCILED=False;pihole.LOCAL_READY=True;pihole.PURGED=0;pihole.invalidate();pihole.reset_route()
 
  def test_optional_and_validated(self):
   self.assertFalse(pihole.enabled(DEFAULT));validate(self.c)
@@ -111,5 +111,11 @@ class PiHoleTests(unittest.TestCase):
   values=pihole.environment(self.c,['10.64.0.1'])
   self.assertEqual(values['FTLCONF_dns_upstreams'],'10.64.0.1')
   self.assertEqual(values['FTLCONF_database_forceDisk'],'false')
+
+ def test_portal_domains_get_explicit_filter_exceptions(self):
+  with patch('pihole.request',return_value={'domains':[]}) as api,patch('pihole.atomic'):
+   pihole.local_rules(self.c)
+  for name in (self.c['portal_domain'],self.c['hostname']+'.local'):
+   self.assertIn(unittest.mock.call('/domains/allow/exact',{'domain':name,'enabled':True,'groups':[0],'comment':'local-portal'}),api.call_args_list)
 
 if __name__=='__main__':unittest.main()

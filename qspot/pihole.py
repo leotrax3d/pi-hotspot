@@ -26,6 +26,7 @@ ROUTED=None
 PURGED=0
 LAST_SAMPLE=0
 RECONCILED=False
+LOCAL_READY=False
 OPENER=build_opener(ProxyHandler({}))
 
 def daily_sample():
@@ -75,6 +76,24 @@ def domain(value):
  value=check(str(value).strip().rstrip('.'))
  if '.' not in value:raise ValueError('Domain erforderlich')
  return value
+
+def local_rules(c):
+ """Local portal records must also win against gravity/explicit filter rules."""
+ from branding import identity
+ names={identity(c)['portal_domain'],c['hostname']+'.local'}
+ state=STATE/'pihole-local-domains.json'
+ old=set(json.loads(state.read_text())) if state.exists() else set()
+ for name in sorted(names):
+  target='/domains/allow/exact/'+quote(name,safe='')
+  items=request(target).get('domains',[])
+  if not items:request('/domains/allow/exact',{'domain':name,'enabled':True,'groups':[0],'comment':'local-portal'})
+  elif not items[0].get('enabled') or 0 not in items[0].get('groups',[]):
+   request(target,{'enabled':True,'groups':sorted(set(items[0].get('groups',[]))|{0}),'comment':items[0].get('comment','')},'PUT')
+ for name in sorted(old-names):
+  target='/domains/allow/exact/'+quote(name,safe='')
+  items=request(target).get('domains',[])
+  if items and items[0].get('comment')=='local-portal':request(target,method='DELETE')
+ if names!=old:atomic(state,sorted(names))
 
 def view(c):
  global CACHE,UNTIL
@@ -168,15 +187,15 @@ def configure(c,upstreams):
    fd=os.open(path.parent,os.O_DIRECTORY)
    try:os.fsync(fd)
    finally:os.close(fd)
-  global SID,RECONCILED,PURGED
-  SID='';RECONCILED=False;PURGED=0;invalidate()
+  global SID,RECONCILED,PURGED,LOCAL_READY
+  SID='';RECONCILED=False;PURGED=0;LOCAL_READY=False;invalidate()
   run('systemctl','enable','qspot-pihole',check=False)
   run('systemctl','restart','qspot-pihole',check=False)
  else:run('systemctl','start','qspot-pihole',check=False)
 
 def maintain(c):
  """Only local DNS remains during FTL failure. No public fallback resolver."""
- global LAST_HEALTH,ROUTED,PURGED,RECONCILED,SID,LAST_SAMPLE
+ global LAST_HEALTH,ROUTED,PURGED,RECONCILED,SID,LAST_SAMPLE,LOCAL_READY
  if not enabled(c):return
  now=time.monotonic()
  if now-LAST_HEALTH<5:return
@@ -185,6 +204,7 @@ def maintain(c):
  alive=False
  try:
   current=request('/dns/blocking')
+  if not LOCAL_READY:local_rules(c);LOCAL_READY=True
   if now-LAST_SAMPLE>=30:
    daily_sample();LAST_SAMPLE=now
   control=STATE/'pihole-control.json'
@@ -205,7 +225,7 @@ def maintain(c):
     counts=json.loads(counts_path.read_text());counts.update(sample_total=0,sample_blocked=0);atomic(counts_path,counts)
   alive=dns_alive(c)
  except (ValueError,OSError):pass
- if not alive:RECONCILED=False;SID=''
+ if not alive:RECONCILED=False;LOCAL_READY=False;SID=''
  if not alive and PURGED and now-PURGED>=min(86400,c.get('dns_retention_hours',24)*3600)-5:
   # An unavailable API must not defeat the retention deadline.
   run('systemctl','restart','qspot-pihole',check=False);PURGED=0
