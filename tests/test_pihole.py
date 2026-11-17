@@ -91,4 +91,25 @@ class PiHoleTests(unittest.TestCase):
    pihole.maintain(self.c)
   self.assertIn(unittest.mock.call('/action/flush/logs',{},'POST'),api.call_args_list)
 
+ def test_disabled_module_preserves_original_upstreams(self):
+  real=Path
+  with tempfile.TemporaryDirectory() as temp:
+   def path(value):return real(temp)/'dns.conf' if str(value)=='/run/qspot/dns-guest.conf' else real(value)
+   with patch('network.Path',side_effect=path),patch('network.run',return_value='192.0.2.53'),patch('pihole.configure'):
+    network.dns(DEFAULT)
+   self.assertIn('server=192.0.2.53',(real(temp)/'dns.conf').read_text())
+
+ def test_port_conflict_stops_before_creating_credentials(self):
+  sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'installer'))
+  import pihole_setup
+  with patch('pihole_setup.runtime.apt'),patch('pihole_setup.runtime.command',return_value='false'),patch('pihole_setup.socket.socket') as socket:
+   socket.return_value.__enter__.return_value.bind.side_effect=OSError('occupied')
+   with self.assertRaisesRegex(ValueError,'DNS-Port belegt'):pihole_setup.prepare(self.c)
+
+ def test_vpn_dns_environment_contains_no_public_fallback(self):
+  self.c['vpn']='both'
+  values=pihole.environment(self.c,['10.64.0.1'])
+  self.assertEqual(values['FTLCONF_dns_upstreams'],'10.64.0.1')
+  self.assertEqual(values['FTLCONF_database_forceDisk'],'false')
+
 if __name__=='__main__':unittest.main()

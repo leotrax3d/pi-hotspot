@@ -44,6 +44,7 @@ def dataplane(c,state):
   time.sleep(.5)
   blocked=query('blocked.test');assert blocked['ip']=='0.0.0.0' or blocked['rcode']==3,blocked
   for _ in range(10):
+   query('blocked.test')
    seen=pihole.request('/queries?length=50')['queries']
    if any(x.get('client',{}).get('ip')=='10.77.0.2' for x in seen):break
    time.sleep(.3)
@@ -103,6 +104,8 @@ with tempfile.TemporaryDirectory() as temp:
   assert pihole.request('/dns/blocking')['blocking']=='disabled'
   assert 290<pihole.request('/dns/blocking')['timer']<=300
   pihole.action(c,{'operation':'blocking','enabled':True})
+  assert pihole.request('/dns/blocking')['blocking']=='enabled'
+  pihole.SID='expired-session'
   assert pihole.request('/dns/blocking')['blocking']=='enabled'
   pihole.action(c,{'operation':'device','mac':'02:00:00:00:00:01','enabled':False})
   assert pihole.request('/clients')['clients'][0]['groups']==[]

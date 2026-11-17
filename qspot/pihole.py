@@ -142,7 +142,7 @@ def environment(c, upstreams):
   'FTLCONF_dhcp_active':'false','FTLCONF_ntp_ipv4_active':'false','FTLCONF_ntp_ipv6_active':'false',
   'FTLCONF_ntp_sync_active':'false','FTLCONF_webserver_port':'127.0.0.1:8081',
   'FTLCONF_webserver_api_password':(STATE/'pihole-password').read_text().strip(),
-  'FTLCONF_dns_queryLogging':'false','FTLCONF_database_maxDBdays':'0','FTLCONF_database_DBimport':'false',
+  'FTLCONF_dns_queryLogging':'false','FTLCONF_database_maxDBdays':'0','FTLCONF_database_DBimport':'false','FTLCONF_database_forceDisk':'false',
   'FTLCONF_misc_privacylevel':'0' if c.get('dns_logging') else '3',
   'FTLCONF_webserver_api_maxHistory':str(min(86400,c.get('dns_retention_hours',24)*3600)),
   'FTLCONF_files_log_dnsmasq':'/dev/null','FTLCONF_files_log_ftl':'/dev/null','FTLCONF_files_log_webserver':'/dev/null',

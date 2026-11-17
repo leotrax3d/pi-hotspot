@@ -96,6 +96,10 @@ und können Zugangsdaten und frühere Konfigurationsstände enthalten.
 Installierte Podman-Pakete und heruntergeladene Images bleiben nach Rollback
 vorhanden; sie ändern ohne aktiven Dienst kein Routing.
 
+Der verschlüsselte Dashboard-Export enthält zusätzlich die per API erfassten
+Domain- und Gerätegruppenregeln. Die vollständige Dateiwiederherstellung
+einschließlich Gravity und Schaltzustand erfolgt über die CLI-Sicherung.
+
 `sudo pi-hotspot doctor` zeigt Dienst-/Autostartstatus, Listener und
 Image-Version, keine API-Passwörter. Zusätzlich:
 `sudo journalctl -u qspot-pihole --no-pager -n 50`.

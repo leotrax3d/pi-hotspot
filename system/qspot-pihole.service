@@ -12,5 +12,7 @@ Restart=always
 RestartSec=5
 TimeoutStartSec=45
 TimeoutStopSec=20
+StandardOutput=null
+StandardError=journal
 [Install]
 WantedBy=multi-user.target
