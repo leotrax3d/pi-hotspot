@@ -2,12 +2,14 @@
 Description=QSpot captive portal and authenticated management
 After=qspot-net.service
 Wants=qspot-net.service
+StartLimitIntervalSec=0
+ConditionPathExists=/var/lib/qspot-web/auth.json
 [Service]
 User=qspot
 Group=qspot
 WorkingDirectory=/opt/qspot/qspot
 ExecStart=/usr/bin/python3 /opt/qspot/qspot/web.py
-Restart=on-failure
+Restart=always
 RestartSec=3
 StateDirectory=qspot-web
 StateDirectoryMode=0700

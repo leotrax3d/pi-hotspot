@@ -14,11 +14,17 @@ case "${1:-help}" in
   drivers)
     exec python3 /opt/qspot/installer/drivers.py
     ;;
+  doctor)
+    exec python3 /opt/qspot/installer/doctor.py
+    ;;
+  recover)
+    exec python3 /var/lib/pi-hotspot/recovery.py --manual
+    ;;
   backup)
     exec python3 /opt/qspot/installer/update.py --backup-only
     ;;
   update)
     exec python3 /opt/qspot/installer/update.py
     ;;
-  *) echo 'pi-hotspot {status|logs|configure|drivers|backup|update}' ;;
+  *) echo 'pi-hotspot {status|logs|doctor|recover|configure|drivers|backup|update}' ;;
 esac

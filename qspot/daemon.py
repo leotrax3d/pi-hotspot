@@ -11,6 +11,8 @@ START=time.monotonic()
 ERROR=''
 RECOVERY=[]
 RECOVERY_UNTIL=0
+VPN_RETRY_AT=0
+VPN_RETRY_DELAY=5
 
 def config():
  c=json.loads(CONFIG.read_text());return {**c,**identity(c)}
@@ -151,7 +153,7 @@ def session_view(s,c=None,names=None):
  return {**s,'hostname':names.get((s['mac'],s['ip']),''),'remaining_seconds':max(0,int(s['deadline']-time.monotonic())) if s['deadline'] else None,'limit_bytes':p.get('bytes',0),'vpn':c['vpn']!='off' and s['mac'] not in c.get('vpn_bypass',[])}
 
 def tick():
- global ERROR, RECOVERY
+ global ERROR, RECOVERY, VPN_RETRY_AT, VPN_RETRY_DELAY
  while True:
   try:
    with LOCK:
@@ -162,8 +164,13 @@ def tick():
      RECOVERY=[s for s in RECOVERY if s['id'] not in live]
     from activity_log import maintain
     maintain(c)
-    if c['vpn']!='off' and not Path('/sys/class/net/qspot-wg').exists():
-     network.vpn(c);network.dns(c);network.shaping(c)
+    if c['vpn']!='off' and not Path('/sys/class/net/qspot-wg').exists() and time.monotonic()>=VPN_RETRY_AT:
+     try:
+      network.vpn(c);network.dns(c);network.shaping(c);VPN_RETRY_DELAY=5
+     except (ValueError,OSError):
+      run('ip','link','del','qspot-wg',check=False)
+      VPN_RETRY_DELAY=min(120,VPN_RETRY_DELAY*2)
+     VPN_RETRY_AT=time.monotonic()+VPN_RETRY_DELAY
     for s in rows('SELECT * FROM sessions WHERE active=1'):
      used=network.bytes_used(s['id']); sql('UPDATE sessions SET used=? WHERE id=?',(used,s['id']))
      p=c['profiles'].get(s['profile'])
@@ -211,7 +218,8 @@ def status_data():
  stat=os.statvfs('/')
  handshake=run('wg','show','qspot-wg','latest-handshakes',check=False).split()
  stamp=int(handshake[-1]) if handshake and handshake[-1].isdigit() else 0
- connected=(Path('/sys/class/net')/network.WAN/'operstate').read_text().strip()=='up'
+ carrier=Path('/sys/class/net')/network.WAN/'operstate'
+ connected=carrier.exists() and carrier.read_text().strip()=='up'
  internet=run('nmcli','-t','-f','CONNECTIVITY','general',check=False)=='full'
  host=run('iw','dev',network.WAN,'link',check=False)
  stations=network.associated()
@@ -226,6 +234,7 @@ def web_activity(hours=24):
 
 def dispatch(d):
  method=d['method']; c=config()
+ if method in ('apply','wifi_connect','vpn_toggle','vpn_import','reboot','restart') and Path('/var/lib/pi-hotspot/transaction.json').exists():raise ValueError('Wartung aktiv')
  if method=='config': return c
  if method=='matrix_test':
   mode=int(d['mode'])

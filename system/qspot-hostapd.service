@@ -1,9 +1,10 @@
 [Unit]
 Description=QSpot isolated open guest Wi-Fi
 After=NetworkManager.service
+StartLimitIntervalSec=0
 [Service]
 ExecStart=/usr/sbin/hostapd /run/qspot/hostapd.conf
-Restart=on-failure
+Restart=always
 RestartSec=5
 ProtectHome=yes
 PrivateTmp=yes
