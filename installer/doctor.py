@@ -12,9 +12,11 @@ def query(*args):
 
 
 def report():
- units=('qspot-net','qspot-web','qspot-hostapd','qspot-dns@guest','pi-hotspot-recover')
+ units=('qspot-net','qspot-web','qspot-hostapd','qspot-dns@guest','pi-hotspot-recover','qspot-pihole')
  handshakes=query('wg','show','qspot-wg','latest-handshakes')
  return {'services':{u:{'active':query('systemctl','is-active',u),'enabled':query('systemctl','is-enabled',u)} for u in units},
+         'dns_ports':query('ss','-lntu'),
+         'pihole_image':query('podman','inspect','-f','{{.Config.Image}}','qspot-pihole'),
          'disk_free_mb':shutil.disk_usage('/').free//1024**2,
          'pending_recovery':Path('/var/lib/pi-hotspot/transaction.json').exists(),
          'wifi':query('iw','dev'),'modules':query('dkms','status'),

@@ -12,7 +12,7 @@ DEFAULT = {
  'default_profile':'standard', 'global_down_kbit':0, 'global_up_kbit':0,
  'usb_down_kbit':0,'usb_up_kbit':0, 'vpn':'off','vpn_server':'',
  'ap_password':'', 'vpn_bypass':[], 'dns_logging':False, 'dns_retention_hours':24,
- 'features':{'chat':True,'singleplayer':True,'multiplayer':True,'vpn':True},
+ 'features':{'chat':True,'singleplayer':True,'multiplayer':True,'vpn':True,'pihole':False},
  'onboarding_complete':True,
  'matrix':{'enabled':False,'brightness':2,'reduce_motion':False,'night_start':'22:00','night_end':'07:00','timezone':'Europe/Berlin'},
 }
@@ -40,7 +40,7 @@ def validate(c, routes=()):
  if type(c.get('dns_retention_hours',24)) is not int or not 1<=c.get('dns_retention_hours',24)<=168:raise ValueError('DNS-Aufbewahrung: 1–168 Stunden')
  if not isinstance(c.get('vpn_bypass',[]),list) or len(c.get('vpn_bypass',[]))>1000 or any(not isinstance(x,str) or not re.fullmatch(r'(?:[0-9a-f]{2}:){5}[0-9a-f]{2}',x) for x in c.get('vpn_bypass',[])):raise ValueError('Ungültige VPN-Geräteauswahl')
  features=c.get('features',{})
- if not isinstance(features,dict) or set(features)-{'chat','singleplayer','multiplayer','vpn'} or any(type(x) is not bool for x in features.values()):raise ValueError('Ungültige Funktionsauswahl')
+ if not isinstance(features,dict) or set(features)-{'chat','singleplayer','multiplayer','vpn','pihole'} or any(type(x) is not bool for x in features.values()):raise ValueError('Ungültige Funktionsauswahl')
  if not re.fullmatch(r'[a-z][a-z0-9-]{0,61}[a-z0-9]|[a-z]', c['hostname']): raise ValueError('Ungültiger Hostname')
  if not 1<=len(c['ssid'].encode())<=32 or any(ord(x)<32 for x in c['ssid']): raise ValueError('Ungültige SSID')
  if c['country']!='DE' or c['channel'] not in range(1,12): raise ValueError('Diese Installation unterstützt DE und Kanal 1–11')

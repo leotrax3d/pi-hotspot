@@ -17,7 +17,7 @@ def maintain(c, force=False):
  now=time.time()
  if not force and now-LAST<30:return
  LAST=now
- if not c.get('dns_logging'):
+ if not c.get('dns_logging') or c.get('features',{}).get('pihole',False):
   STORE.unlink(missing_ok=True)
   if RAW.exists():
    with RAW.open('r+') as f:f.truncate(0)

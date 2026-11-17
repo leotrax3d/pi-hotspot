@@ -13,7 +13,7 @@ from pathlib import Path
 ALLOWED={'/opt/qspot','/etc/qspot','/var/lib/qspot','/var/lib/qspot-web',
          '/etc/NetworkManager/system-connections','/etc/NetworkManager/conf.d/90-pi-hotspot.conf',
          '/etc/sysctl.d/90-pi-hotspot.conf','/etc/avahi/hosts','/etc/hostname','/etc/hosts','/usr/local/bin/pi-hotspot'}
-ALLOWED.update('/etc/systemd/system/'+u for u in ('qspot-net.service','qspot-web.service','qspot-hostapd.service','qspot-dns@.service'))
+ALLOWED.update('/etc/systemd/system/'+u for u in ('qspot-net.service','qspot-web.service','qspot-hostapd.service','qspot-dns@.service','qspot-pihole.service'))
 MARKER=Path('/var/lib/pi-hotspot/transaction.json')
 
 
@@ -35,10 +35,10 @@ def validate_snapshot(directory):
  data=json.loads((directory/'manifest.json').read_text())
  if not isinstance(data,dict):raise ValueError('Ungültiges Sicherungsmanifest')
  targets=data.get('targets',[])
- if not isinstance(targets,list) or len(targets)!=len(set(targets)) or set(targets) not in (ALLOWED,ALLOWED-{'/etc/avahi/hosts'}):raise ValueError('Ungültiges Sicherungsmanifest')
+ if not isinstance(targets,list) or len(targets)!=len(set(targets)) or set(targets) not in (ALLOWED,ALLOWED-{'/etc/avahi/hosts'},ALLOWED-{'/etc/systemd/system/qspot-pihole.service'},ALLOWED-{'/etc/avahi/hosts','/etc/systemd/system/qspot-pihole.service'}):raise ValueError('Ungültiges Sicherungsmanifest')
  present=data.get('present',[])
  if not isinstance(present,list) or len(present)!=len(set(present)) or not set(present)<=set(data['targets']):raise ValueError('Ungültige Sicherungspfade')
- if set(data.get('services',{}))-{'qspot-net','qspot-web','avahi-daemon'}:raise ValueError('Ungültige Dienste')
+ if set(data.get('services',{}))-{'qspot-net','qspot-web','avahi-daemon','qspot-pihole'}:raise ValueError('Ungültige Dienste')
  if set(data.get('sysctl',{}))-{'net.ipv4.ip_forward','net.ipv4.conf.all.rp_filter'}:raise ValueError('Ungültige Kernelparameter')
  import re
  for device,ident in data.get('connections',{}).items():
@@ -96,8 +96,8 @@ def restore(directory,watchdog=False):
    if key in current:
     import re
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,15}',current[key]):raise ValueError('Ungültige Schnittstelle')
-  for unit in ('qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest'):run('systemctl','stop',unit)
-  for unit in ('qspot-web','qspot-net'):run('systemctl','disable',unit)
+  for unit in ('qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest','qspot-pihole'):run('systemctl','stop',unit)
+  for unit in ('qspot-web','qspot-net','qspot-pihole'):run('systemctl','disable',unit)
   run('nft','delete','table','inet','qspot')
   run('ip','rule','del','pref','177');run('ip','route','flush','table','177');run('ip','route','flush','proto','186')
   run('ip','link','del','qspot-wg')

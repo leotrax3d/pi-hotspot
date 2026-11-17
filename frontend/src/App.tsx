@@ -70,6 +70,7 @@ const Dashboard = lazy(() =>
   import("./Dashboard").then((m) => ({ default: m.Dashboard })),
 );
 import type { TrafficPoint } from "./Dashboard";
+const DnsProtection = lazy(() => import('./DnsProtection').then(m => ({default:m.DnsProtection})));
 const Guests = lazy(() =>
   import("./Guests").then((m) => ({ default: m.Guests })),
 );
@@ -106,6 +107,7 @@ const links = [
   { id: "wifi", label: "Internet", icon: Wifi },
   { id: "guests", label: "Gäste & Codes", icon: Users },
   { id: "activity", label: "Webaktivität", icon: Globe2 },
+  { id: "dns", label: "DNS-Schutz", icon: Shield },
   { id: "vpn", label: "Mullvad VPN", icon: Shield },
   { id: "matrix", label: "LED-Matrix", icon: Grid2X2 },
   { id: "settings", label: "Einstellungen", icon: SlidersHorizontal },
@@ -155,7 +157,7 @@ function Navigation({
           <SidebarGroupLabel>Router</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {links.filter(link=>link.id!=="matrix"&&(link.id!=="vpn"||features.vpn!==false)).map((link) => (
+              {links.filter(link=>link.id!=="matrix"&&(link.id!=="dns"||features.pihole===true)&&(link.id!=="vpn"||features.vpn!==false)).map((link) => (
                 <SidebarMenuItem key={link.id}>
                   <SidebarMenuButton isActive={route === link.id} asChild>
                     <a
@@ -496,6 +498,8 @@ function App() {
                       refresh={refresh}
                       confirm={confirm}
                     />
+                  ) : route === "dns" ? (
+                    <DnsProtection status={status} />
                   ) : route === "vpn" ? (
                     <VPN
                       status={status}

@@ -32,7 +32,7 @@ import runtime
 PACKAGES=['iw','hostapd','dnsmasq-base','nftables','wireguard-tools','iproute2',
           'conntrack','python3-flask','python3-cryptography','openssl',
           'avahi-daemon','network-manager','rfkill','ca-certificates','git']
-UNITS=['qspot-net.service','qspot-web.service','qspot-hostapd.service','qspot-dns@.service']
+UNITS=['qspot-net.service','qspot-web.service','qspot-hostapd.service','qspot-dns@.service','qspot-pihole.service']
 TARGETS=['/opt/qspot','/etc/qspot','/var/lib/qspot','/var/lib/qspot-web',
          '/etc/NetworkManager/system-connections','/etc/NetworkManager/conf.d/90-pi-hotspot.conf',
          '/etc/sysctl.d/90-pi-hotspot.conf','/etc/avahi/hosts','/etc/hostname','/etc/hosts','/usr/local/bin/pi-hotspot']+['/etc/systemd/system/'+u for u in UNITS]
@@ -146,7 +146,7 @@ def collect(existing=None,old_platform=None,existing_auth=None):
  c['portal_mode']='code' if 'Voucher' in access else 'both' if yes('Zusätzlich Voucher im Portal anbieten?',c['portal_mode']=='both' if existing else False) else 'accept'
  if not existing:c['terms']='Nutze den Zugang verantwortungsbewusst. '+('Die WLAN-Funkstrecke ist unverschlüsselt; nutze HTTPS.' if not c['ap_password'] else 'Die WLAN-Funkstrecke ist mit WPA2 geschützt.')
  c['title']=ask('Titel im Portal',c['title'] if existing else c['brand_name'])
- for key,label in [('chat','Chat mit Wort- und Linkfilter'),('singleplayer','Singleplayer-Games'),('multiplayer','Multiplayer-Games mit Lobbys'),('vpn','Mullvad/WireGuard-Unterstützung')]:
+ for key,label in [('chat','Chat mit Wort- und Linkfilter'),('singleplayer','Singleplayer-Games'),('multiplayer','Multiplayer-Games mit Lobbys'),('pihole','Pi-hole DNS-Schutz'),('vpn','Mullvad/WireGuard-Unterstützung')]:
   c['features'][key]=yes(label+' installieren?',c['features'][key])
  c['dns_logging']=yes('DNS-Domain-Logs aktivieren?',c['dns_logging'])
  if c['dns_logging']:c['dns_retention_hours']=ask_int('Aufbewahrung (Stunden)',1,168,c['dns_retention_hours'])
@@ -191,7 +191,7 @@ def backup():
  target=base/(time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:8])
  target.mkdir(parents=True,mode=0o700);target.chmod(0o700)
  present=[p for p in TARGETS if Path(p).exists()]
- services={u:{'enabled':command('systemctl','is-enabled',u,check=False,quiet=True)=='enabled','active':command('systemctl','is-active',u,check=False,quiet=True)=='active'} for u in ('qspot-net','qspot-web','avahi-daemon')}
+ services={u:{'enabled':command('systemctl','is-enabled',u,check=False,quiet=True)=='enabled','active':command('systemctl','is-active',u,check=False,quiet=True)=='active'} for u in ('qspot-net','qspot-web','avahi-daemon','qspot-pihole')}
  sysctls={k:command('sysctl','-n',k,check=False,quiet=True) for k in ('net.ipv4.ip_forward','net.ipv4.conf.all.rp_filter')}
  active=json.loads(command('ip','-j','link','show',quiet=True))
  connections={}
@@ -200,7 +200,9 @@ def backup():
   ident=command('nmcli','-g','GENERAL.CON-UUID','device','show',device['ifname'],check=False,quiet=True)
   if re.fullmatch(r'[a-fA-F0-9-]{36}',ident):connections[device['ifname']]=ident
  database=Path('/var/lib/qspot/router.sqlite');snapshot=target/'router.snapshot.sqlite'
+ frozen=command('podman','inspect','-f','{{.State.Running}}','qspot-pihole',check=False,quiet=True)=='true' if shutil.which('podman') else False
  try:
+  if frozen:command('podman','pause','qspot-pihole',quiet=True)
   if database.exists():
    sqlite_snapshot(database,snapshot)
    snapshot.chmod(0o600)
@@ -213,7 +215,9 @@ def backup():
   shutil.copy2(ROOT/'installer'/'rollback.py',target/'rollback.py')
   from rollback import validate_snapshot
   validate_snapshot(target)
- finally:snapshot.unlink(missing_ok=True)
+ finally:
+  if frozen:command('podman','unpause','qspot-pihole',check=False,quiet=True)
+  snapshot.unlink(missing_ok=True)
  return target
 
 
@@ -235,6 +239,9 @@ def wait_ready(seconds=90):
    try:
     status=rpc('status')
     if not status.get('error'):
+     if status.get('features',{}).get('pihole'):
+      if command('systemctl','is-enabled','qspot-pihole',check=False,quiet=True)!='enabled':raise ValueError('DNS-Autostart fehlt')
+      if not rpc('dns_status').get('available'):raise ValueError('DNS-Schutz nicht bereit')
      context=ssl.create_default_context(cafile='/etc/qspot/tls/cert.pem');context.check_hostname=False
      with urlopen('https://127.0.0.1:8443/api/auth',context=context,timeout=3) as response:
       if json.load(response).get('setup'):raise ValueError('Admin-Zugang fehlt')
@@ -281,8 +288,12 @@ def install(c,p,wifi,vpn,auth):
   if command('dpkg','--audit',quiet=True):command('dpkg','--configure','-a',timeout=1800)
   runtime.apt('update');runtime.apt('install','-y','--no-install-recommends',*PACKAGES)
   for module in ('wireguard','sch_htb','cls_u32','sch_fq_codel'):command('modprobe',module)
+  runtime.stage('DNS-Schutz vorbereiten')
+  from pihole_setup import prepare
+  prepare(c)
   runtime.stage('Dienste anhalten')
   command('systemctl','stop','qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest',check=False)
+  command('systemctl','stop','qspot-pihole',check=False)
   if command('id','-u','qspot',check=False,quiet=True)=='':
    command('useradd','--system','--home-dir','/var/lib/qspot-web','--shell','/usr/sbin/nologin','qspot')
   runtime.stage('Dateien und Zugang einrichten')
@@ -323,7 +334,10 @@ def install(c,p,wifi,vpn,auth):
   if not re.search(r'^127\.0\.1\.1\s',hosts,re.M):hosts+='\n127.0.1.1\t'+c['hostname']+'\n'
   write_text('/etc/hosts',hosts)
   runtime.stage('Autostart und Dienste prüfen')
-  command('systemctl','daemon-reload');command('systemctl','enable','qspot-net','qspot-web','avahi-daemon')
+  command('systemctl','daemon-reload')
+  if c.get('features',{}).get('pihole'):command('systemctl','enable','qspot-pihole')
+  else:command('systemctl','disable','--now','qspot-pihole',check=False)
+  command('systemctl','enable','qspot-net','qspot-web','avahi-daemon')
   command('systemctl','restart','avahi-daemon');command('systemctl','start','qspot-net','qspot-web')
   wait_ready()
   runtime.finish();committed=True

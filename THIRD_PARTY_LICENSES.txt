@@ -1,6 +1,16 @@
 Third-party licenses for pi-hotspot frontend
 Includes build-time packages as well as bundled runtime dependencies.
 
+Optional Pi-hole integration downloads the unmodified official image
+docker.io/pihole/pihole:2026.11.0 at installation time; the image is not
+redistributed in this repository. Pi-hole component sources and licenses:
+https://github.com/pi-hole/FTL
+https://github.com/pi-hole/pi-hole
+https://github.com/pi-hole/web
+https://github.com/pi-hole/docker-pi-hole
+Podman is installed from the operating system package repository:
+https://github.com/containers/podman
+
 
 ========================================================================
 @babel/code-frame 7.29.7

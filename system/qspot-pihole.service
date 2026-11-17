@@ -1,0 +1,18 @@
+[Unit]
+Description=Hotspot DNS protection
+After=pi-hotspot-recover.service
+StartLimitIntervalSec=0
+ConditionPathExists=/var/lib/qspot/pihole.env
+[Service]
+ExecStartPre=/usr/sbin/nft list table inet qspot
+ExecStartPre=-/usr/bin/podman rm -f qspot-pihole
+ExecStart=/usr/bin/podman run --rm --name qspot-pihole --network host --log-driver none --pull=never --env-file /var/lib/qspot/pihole.env --volume /var/lib/qspot/pihole:/etc/pihole --tmpfs /var/log/pihole:rw,nosuid,nodev,size=16m --shm-size=64m docker.io/pihole/pihole:2026.11.0
+ExecStop=/usr/bin/podman stop -t 10 qspot-pihole
+Restart=always
+RestartSec=5
+TimeoutStartSec=45
+TimeoutStopSec=20
+StandardOutput=null
+StandardError=journal
+[Install]
+WantedBy=multi-user.target

@@ -12,7 +12,7 @@ const config={hostname:'pi-hotspot',ssid:'Campus',guest:'10.77.0.1/24',usb:'10.7
  profiles:{standard:{bytes:0,seconds:0,down_kbit:0,up_kbit:0,devices:0,concurrent:0}},
  default_profile:'standard',global_down_kbit:0,global_up_kbit:0,usb_down_kbit:0,usb_up_kbit:0,
  vpn:'both',vpn_server:'test',onboarding_complete:true,matrix:{enabled:false,brightness:2,night_start:'22:00',night_end:'07:00'},
- brand_name:'Campus',portal_domain:'login.campus.lan',features:{chat:true,singleplayer:true,multiplayer:true,vpn:true}}
+ brand_name:'Campus',portal_domain:'login.campus.lan',features:{chat:true,singleplayer:true,multiplayer:true,vpn:true,pihole:true}}
 const status={connected_guests:1,associated_macs:['02:00:00:00:00:01'],vpn_enabled:true,vpn:'connected',
  host_connected:true,internet:true,host:'',uplink_interface:'eth0',network_mode:'lan',
  rates:{eth0:{rx_bytes:10000,tx_bytes:1000,rx_Bps:1024,tx_Bps:512}},
@@ -20,6 +20,7 @@ const status={connected_guests:1,associated_macs:['02:00:00:00:00:01'],vpn_enabl
  remaining_seconds:null,limit_bytes:0,reason:'',vpn:true}],codes:[],blocked:[],
  vpn_servers:['test'],pending:false,cpu_load:0.2,ram_total:1073741824,ram_available:500000000,
  disk_free:10000000000,temperature_c:42,uptime:60}
+const dns={installed:true,available:true,blocking:'enabled',timer:null,blocked_today:42,ratio:12.5,logging:true,devices:{},events:[{time:1700000000,domain:'tracker.example',ip:'10.77.0.20',status:'GRAVITY'},{time:1700000001,domain:'school.example',ip:'10.77.0.20',status:'FORWARDED'}]}
 const actions=[]
 const server=createServer(async(req,res)=>{
  try{
@@ -36,7 +37,8 @@ const server=createServer(async(req,res)=>{
     if(action.method==='apply')Object.assign(config,action.config)
     if(action.method==='device_vpn')status.sessions[0].vpn=action.enabled
     if(action.method==='vpn_toggle'){status.vpn_enabled=action.enabled;status.vpn=action.enabled?'connected':'off';config.vpn=action.enabled?'both':'off'}
-    result={result:true}
+    if(action.method==='dns_action'){if(action.operation==='pause'){dns.blocking='disabled';dns.timer=300}if(action.operation==='blocking')dns.blocking=action.enabled?'enabled':'disabled';if(action.operation==='device')dns.devices[action.mac]=action.enabled}
+    result={result:action.method==='dns_status'?dns:true}
    }else result={}
    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return
   }
@@ -64,7 +66,26 @@ try{
  assert.equal(await page.title(),'Campus')
  assert.equal(await page.getByRole('link',{name:'Portal öffnen'}).getAttribute('href'),'https://login.campus.lan/')
  if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'dashboard-desktop.png'),fullPage:true})
- await page.getByRole('link',{name:'Einstellungen',exact:true}).click()
+ await page.getByRole('link',{name:'DNS-Schutz',exact:true}).click()
+ await page.getByText('Heute blockiert',{exact:true}).waitFor()
+ await page.getByRole('button',{name:'5 min',exact:true}).click()
+ await page.getByRole('button',{name:'300 s',exact:true}).waitFor()
+ assert(actions.some(a=>a.method==='dns_action'&&a.operation==='pause'))
+ await page.getByRole('textbox',{name:'Domain',exact:true}).fill('example.org')
+ await page.getByRole('button',{name:'Sperren',exact:true}).click()
+ await page.waitForFunction(()=>!document.querySelector('button[role=switch]')?.disabled)
+ assert(actions.some(a=>a.operation==='domain'&&a.domain==='example.org'&&a.mode==='deny'))
+ await page.getByRole('switch',{name:'Filter School-Laptop'}).click()
+ await page.waitForFunction(()=>document.querySelector('button[aria-label="Filter School-Laptop"]')?.getAttribute('aria-checked')==='false')
+ await page.getByRole('textbox',{name:'Domain-Log filtern'}).fill('tracker')
+ assert.equal(await page.getByText('school.example',{exact:true}).count(),0)
+ await page.setViewportSize({width:390,height:844})
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false)
+ if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'dns-mobile.png'),fullPage:true})
+ await page.setViewportSize({width:1280,height:900})
+ if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'dns-desktop.png'),fullPage:true})
+ await page.goto(`http://127.0.0.1:${server.address().port}/admin#settings`)
+ await page.getByLabel('Name',{exact:true}).waitFor()
  await page.getByLabel('Name',{exact:true}).fill('Campus Nord')
  assert.equal(await page.getByLabel('Titel',{exact:true}).inputValue(),'Campus Nord Portal')
  assert.equal(await page.getByLabel('Domain',{exact:true}).inputValue(),'login.campus-nord.lan')

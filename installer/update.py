@@ -30,12 +30,17 @@ def main():
   try:
    runtime.stage('Update vorbereiten')
    setup.command('systemctl','stop','qspot-web','qspot-net','qspot-hostapd','qspot-dns@guest')
+   setup.command('systemctl','stop','qspot-pihole',check=False)
    for name in ('qspot','system','installer'):
     destination=Path('/opt/qspot')/name
     shutil.rmtree(destination);shutil.copytree(source/name,destination,ignore=shutil.ignore_patterns('__pycache__'))
    setup.write_text('/usr/local/bin/pi-hotspot',(source/'installer'/'pi-hotspot').read_text(),0o755)
    for unit in setup.UNITS:shutil.copy2(source/'system'/unit,Path('/etc/systemd/system')/unit)
    setup.write_text('/opt/qspot/SOURCE',setup.command('git','-C',str(source),'rev-parse','HEAD',quiet=True))
+   from common import STATE
+   from pihole_setup import prepare
+   import json
+   prepare(json.loads((STATE/'config.json').read_text()))
    setup.command('systemctl','daemon-reload');setup.command('systemctl','start','qspot-net','qspot-web')
    setup.wait_ready()
    runtime.finish();committed=True

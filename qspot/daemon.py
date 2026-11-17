@@ -164,6 +164,8 @@ def tick():
      RECOVERY=[s for s in RECOVERY if s['id'] not in live]
     from activity_log import maintain
     maintain(c)
+    import pihole
+    pihole.maintain(c)
     if c['vpn']!='off' and not Path('/sys/class/net/qspot-wg').exists() and time.monotonic()>=VPN_RETRY_AT:
      try:
       network.vpn(c);network.dns(c);network.shaping(c);VPN_RETRY_DELAY=5
@@ -228,14 +230,27 @@ def status_data():
  return {'connected_guests':len(stations),'associated_macs':stations,'host_connected':connected,'internet':internet,'host':host,'rates':rates,'vpn':('off' if c['vpn']=='off' else 'connected' if stamp and time.time()-stamp<180 else 'connecting' if connecting else 'blocked'),'vpn_global':False,'vpn_enabled':c['vpn']!='off','features':c.get('features',{}),'uplink_interface':network.WAN,'network_mode':network.PLATFORM['mode'],'vpn_handshake':stamp,'cpu_load':os.getloadavg()[0],'ram_total':mem['MemTotal'],'ram_available':mem['MemAvailable'],'disk_free':stat.f_bavail*stat.f_frsize,'temperature_c':int(Path('/sys/class/thermal/thermal_zone0/temp').read_text())/1000,'error':ERROR,'uptime':int(now-START),'sessions':[session_view(s,c,names) for s in rows('SELECT * FROM sessions ORDER BY id DESC LIMIT 200')],'codes':rows('SELECT id,label,profile,expires,duration,first,revoked FROM codes ORDER BY id DESC'),'blocked':rows('SELECT * FROM blocked'),'pending':(STATE/'pending.json').exists() or (STATE/'wifi-pending.json').exists(),'vpn_servers':[p.stem for p in (STATE/'vpn').glob('*.json')]}
 
 def web_activity(hours=24):
+ c=config()
+ if c.get('features',{}).get('pihole'):
+  import pihole
+  data=pihole.view(c)
+  macs={x['ip']:x['mac'] for x in reversed(rows('SELECT ip,mac FROM sessions ORDER BY id DESC'))}
+  events=[{**x,'mac':macs.get(x['ip'],'')} for x in data.get('events',[]) if x['time']>=time.time()-min(int(hours),c.get('dns_retention_hours',24))*3600]
+  return {'events':events,'top':[],'hours':hours,'retention_hours':c.get('dns_retention_hours',24),'total':len(events),'enabled':c.get('dns_logging',False)}
  from activity_log import activity
- return activity(config(), rows('SELECT ip,mac FROM sessions ORDER BY id DESC'), hours)
+ return activity(c, rows('SELECT ip,mac FROM sessions ORDER BY id DESC'), hours)
 
 
 def dispatch(d):
  method=d['method']; c=config()
  if method in ('apply','wifi_connect','vpn_toggle','vpn_import','reboot','restart') and Path('/var/lib/pi-hotspot/transaction.json').exists():raise ValueError('Wartung aktiv')
  if method=='config': return c
+ if method in ('dns_status','dns_action'):
+  import pihole
+  if method=='dns_action':
+   if Path('/var/lib/pi-hotspot/transaction.json').exists():raise ValueError('Wartung aktiv')
+   return pihole.action(c,d)
+  return pihole.view(c)
  if method=='matrix_test':
   mode=int(d['mode'])
   if not 0<=mode<=6:raise ValueError('Unbekanntes Matrixsymbol')
@@ -246,6 +261,9 @@ def dispatch(d):
  if method=='status': return status_data()
  if method=='web_activity': return web_activity(d.get('hours',24))
  if method=='clear_web_activity':
+  if c.get('features',{}).get('pihole'):
+   import pihole
+   pihole.request('/action/flush/logs',{},'POST');pihole.invalidate()
   from activity_log import clear
   clear();return True
  if method=='portal':
@@ -391,7 +409,11 @@ def dispatch(d):
    atomic(CONFIG,json.loads((STATE/'previous.json').read_text())); (STATE/'pending.json').unlink(); network.setup(config())
   return True
  if method=='backup':
-  return {'config':c,'codes':rows('SELECT * FROM codes'),'sessions':rows('SELECT * FROM sessions'),'blocked':rows('SELECT * FROM blocked'),'vpn':{p.stem:json.loads(p.read_text()) for p in (STATE/'vpn').glob('*.json')}}
+  extra={}
+  if c.get('features',{}).get('pihole'):
+   import pihole
+   extra['pihole']={'domains':pihole.request('/domains').get('domains',[]),'clients':pihole.request('/clients').get('clients',[])}
+  return {**extra,'config':c,'codes':rows('SELECT * FROM codes'),'sessions':rows('SELECT * FROM sessions'),'blocked':rows('SELECT * FROM blocked'),'vpn':{p.stem:json.loads(p.read_text()) for p in (STATE/'vpn').glob('*.json')}}
  if method=='restart':
   service=d['service']
   if service not in ('qspot-hostapd','qspot-dns@guest','qspot-dns@usb'): raise ValueError('Dienst nicht freigegeben')
