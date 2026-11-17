@@ -58,7 +58,7 @@ class PiHoleTests(unittest.TestCase):
    pihole.maintain(self.c)
   self.assertIn('redirect to :53',run.call_args_list[0].kwargs['input'])
   pihole.LAST_HEALTH=0
-  with patch('pihole.request',return_value={'blocking':'enabled'}),patch('pihole.daily_sample'),patch('pihole.dns_alive',return_value=True),patch('common.run') as run:
+  with patch('pihole.request',return_value={'blocking':'enabled'}),patch('pihole.local_rules'),patch('pihole.daily_sample'),patch('pihole.dns_alive',return_value=True),patch('common.run') as run:
    pihole.maintain(self.c)
   self.assertIn('redirect to :5354',run.call_args_list[0].kwargs['input'])
 

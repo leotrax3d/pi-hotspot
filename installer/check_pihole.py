@@ -36,6 +36,7 @@ def dataplane(c,state):
   def query(name):
    code="import socket,struct,json;name="+repr(name)+";labels=b''.join(bytes([len(x)])+x.encode() for x in name.split('.'))+b'\\0';packet=struct.pack('!HHHHHH',43210,256,1,0,0,0)+labels+struct.pack('!HH',1,1);s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.settimeout(3);s.sendto(packet,('10.77.0.1',53));data=s.recv(4096);print(json.dumps({'rcode':data[3]&15,'answers':int.from_bytes(data[6:8],'big'),'ip':socket.inet_ntoa(data[-4:])}))"
    return json.loads(run('ip','netns','exec',namespace,'python3','-c',code))
+  pihole.request('/domains/deny/exact',{'domain':c['portal_domain'],'enabled':True,'groups':[0],'comment':'integration-test'})
   pihole.LAST_HEALTH=0;pihole.maintain(c)
   assert query(c['portal_domain'])['ip']=='10.77.0.1'
   # The MAC-based group bypass applies to this real Ethernet peer.
