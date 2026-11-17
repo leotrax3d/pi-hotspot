@@ -62,7 +62,7 @@ def apply_usb_patches(repo):
 def dkms_config():
  return f'''PACKAGE_NAME="{PACKAGE}"
 PACKAGE_VERSION="{VERSION}"
-MAKE[0]="make -j2 -C ${{kernel_source_dir}} M=${{dkms_tree}}/{PACKAGE}/{VERSION}/build/aic_load_fw CONFIG_PLATFORM_UBUNTU=y modules && make -j2 -C ${{kernel_source_dir}} M=${{dkms_tree}}/{PACKAGE}/{VERSION}/build/aic8800_fdrv CONFIG_PLATFORM_UBUNTU=y modules"
+MAKE[0]="make -j2 -C ${{kernel_source_dir}} M=${{dkms_tree}}/{PACKAGE}/{VERSION}/build/aic_load_fw CONFIG_PLATFORM_UBUNTU=y modules && make -j2 -C ${{kernel_source_dir}} M=${{dkms_tree}}/{PACKAGE}/{VERSION}/build/aic8800_fdrv KBUILD_EXTRA_SYMBOLS=${{dkms_tree}}/{PACKAGE}/{VERSION}/build/aic_load_fw/Module.symvers CONFIG_PLATFORM_UBUNTU=y modules"
 CLEAN="make -C aic_load_fw clean; make -C aic8800_fdrv clean"
 BUILT_MODULE_NAME[0]="aic_load_fw"
 BUILT_MODULE_LOCATION[0]="aic_load_fw"
